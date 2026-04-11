@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TranspoBot — Gestion Transport Urbain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Base ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --blue:       #1a56db;
+  --blue-light: #eff6ff;
+  --blue-mid:   #bfdbfe;
+  --blue-dark:  #1e3a8a;
+  --green:      #166534;
+  --green-bg:   #dcfce7;
+  --amber:      #92400e;
+  --amber-bg:   #fef3c7;
+  --red:        #991b1b;
+  --red-bg:     #fee2e2;
+  --gray-50:    #f8fafc;
+  --gray-100:   #f1f5f9;
+  --gray-200:   #e2e8f0;
+  --gray-400:   #94a3b8;
+  --gray-600:   #475569;
+  --gray-800:   #1e293b;
+  --gray-900:   #0f172a;
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.08);
+  --shadow-md:  0 4px 12px rgba(0,0,0,.10);
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--gray-100);
+  color: var(--gray-800);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── Layout ──────────────────────────────────────────────── */
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+
+header {
+  background: var(--gray-900);
+  color: #fff;
+  padding: 0 1.5rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.header-brand { display: flex; align-items: center; gap: 10px; }
+.header-brand .logo {
+  width: 32px; height: 32px; background: var(--blue);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.header-brand h1 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
+.header-brand span { font-size: 12px; color: var(--gray-400); margin-left: 4px; font-weight: 400; }
+.api-pill {
+  font-size: 11px; font-weight: 500;
+  padding: 3px 10px; border-radius: 20px;
+  background: rgba(22,163,74,.15); color: #4ade80;
+  border: 1px solid rgba(74,222,128,.2);
+}
+.api-pill.offline { background: rgba(239,68,68,.15); color: #f87171; border-color: rgba(248,113,113,.2); }
+
+/* ── Nav tabs ─────────────────────────────────────────────── */
+.nav-tabs {
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid var(--gray-200);
+  padding: 0 1.5rem;
+  gap: 2px;
+}
+.nav-tab {
+  padding: 12px 16px;
+  font-size: 13px; font-weight: 500;
+  color: var(--gray-400);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color .15s, border-color .15s;
+  background: none; border-top: none; border-left: none; border-right: none;
+}
+.nav-tab:hover { color: var(--gray-600); }
+.nav-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+/* ── Main content ─────────────────────────────────────────── */
+.content { padding: 1.5rem; max-width: 1400px; margin: 0 auto; width: 100%; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── KPI Cards ────────────────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 1.5rem;
+}
+.kpi-card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: 1.1rem 1.2rem;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow .15s;
+}
+.kpi-card:hover { box-shadow: var(--shadow-sm); }
+.kpi-accent { position: absolute; top: 0; left: 0; width: 3px; height: 100%; border-radius: 3px 0 0 3px; }
+.kpi-label { font-size: 11px; font-weight: 500; color: var(--gray-400); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+.kpi-value { font-size: 28px; font-weight: 600; color: var(--gray-900); line-height: 1; }
+.kpi-sub { font-size: 11px; color: var(--gray-400); margin-top: 5px; }
+
+/* ── Section headers ──────────────────────────────────────── */
+.section-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.section-hd h2 { font-size: 14px; font-weight: 600; color: var(--gray-800); }
+.section-hd small { font-size: 12px; color: var(--gray-400); }
+
+/* ── Grid layout ──────────────────────────────────────────── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem; }
+.grid-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem; }
+.card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.card-body { padding: 1.1rem 1.2rem; }
+
+/* ── Tables ───────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  background: var(--gray-50);
+  color: var(--gray-400);
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .5px;
+  padding: 10px 14px; text-align: left;
+  border-bottom: 1px solid var(--gray-200);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 11px 14px;
+  color: var(--gray-800);
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--gray-50); }
+.mono { font-family: 'DM Mono', monospace; font-size: 12px; }
+
+/* ── Badges ───────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 600;
+  white-space: nowrap;
+}
+.b-green  { background: var(--green-bg);  color: var(--green); }
+.b-amber  { background: var(--amber-bg);  color: var(--amber); }
+.b-red    { background: var(--red-bg);    color: var(--red); }
+.b-blue   { background: var(--blue-light);color: var(--blue); }
+.b-gray   { background: var(--gray-100);  color: var(--gray-600); }
+
+/* ── Bar chart ────────────────────────────────────────────── */
+.bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.bar-lbl { font-size: 12px; color: var(--gray-600); min-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-bg { flex: 1; height: 7px; background: var(--gray-100); border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width .6s ease; }
+.bar-val { font-size: 11px; color: var(--gray-400); min-width: 70px; text-align: right; font-family: 'DM Mono', monospace; }
+
+/* ── Incident list ────────────────────────────────────────── */
+.inc-row { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+.inc-row:last-child { border-bottom: none; }
+.inc-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.d-red { background: #ef4444; }
+.d-amber { background: #f59e0b; }
+.d-green { background: #22c55e; }
+.inc-desc { font-size: 13px; color: var(--gray-800); }
+.inc-meta { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+
+/* ── Chat ─────────────────────────────────────────────────── */
+.chat-layout { display: grid; grid-template-columns: 280px 1fr; gap: 1.25rem; height: calc(100vh - 160px); min-height: 500px; }
+
+.chat-sidebar {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-hd {
+  padding: .9rem 1rem;
+  border-bottom: 1px solid var(--gray-100);
+  font-size: 12px; font-weight: 600;
+  color: var(--gray-400); text-transform: uppercase; letter-spacing: .5px;
+}
+.suggestions-list { padding: .75rem; flex: 1; overflow-y: auto; }
+.sugg-btn {
+  width: 100%; text-align: left;
+  padding: .65rem .8rem;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  font-size: 12.5px; color: var(--gray-700);
+  cursor: pointer; margin-bottom: .4rem;
+  transition: background .1s, border-color .1s;
+  font-family: 'DM Sans', sans-serif;
+  line-height: 1.4;
+}
+.sugg-btn:hover { background: var(--blue-light); border-color: var(--blue-mid); color: var(--blue); }
+.sugg-category { font-size: 10px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: .5px; padding: .5rem .2rem .3rem; }
+
+/* ── Historique conversations ─────────────────────────────── */
+.sidebar-tabs { display: flex; border-bottom: 1px solid var(--gray-100); }
+.sidebar-tab {
+  flex: 1; padding: .65rem .5rem;
+  font-size: 12px; font-weight: 500;
+  color: var(--gray-400); cursor: pointer;
+  background: none; border: none;
+  border-bottom: 2px solid transparent;
+  font-family: 'DM Sans', sans-serif;
+  transition: color .12s, border-color .12s;
+}
+.sidebar-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+.sidebar-panel { display: none; flex: 1; overflow-y: auto; }
+.sidebar-panel.active { display: flex; flex-direction: column; }
+
+.hist-empty { padding: 1.5rem 1rem; text-align: center; color: var(--gray-400); font-size: 12px; }
+.hist-session {
+  padding: .6rem .8rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--gray-100);
+  transition: background .1s;
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.hist-session:hover { background: var(--gray-50); }
+.hist-session.active-sess { background: var(--blue-light); }
+.hist-icon { font-size: 14px; margin-top: 1px; flex-shrink: 0; }
+.hist-info { flex: 1; min-width: 0; }
+.hist-title { font-size: 12.5px; color: var(--gray-800); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hist-meta { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+.hist-del {
+  font-size: 13px; color: var(--gray-400);
+  background: none; border: none; cursor: pointer;
+  padding: 2px 4px; border-radius: 4px;
+  opacity: 0; transition: opacity .1s;
+  flex-shrink: 0;
+}
+.hist-session:hover .hist-del { opacity: 1; }
+.hist-del:hover { color: var(--red); background: var(--red-bg); }
+
+.new-chat-btn {
+  width: calc(100% - 1.5rem); margin: .75rem;
+  padding: .55rem; font-size: 12.5px; font-weight: 500;
+  background: var(--blue-light); color: var(--blue);
+  border: 1px solid var(--blue-mid); border-radius: var(--radius-md);
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+  transition: background .1s;
+}
+.new-chat-btn:hover { background: var(--blue-mid); }
+
+.chat-main {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.chat-hd {
+  padding: .9rem 1.2rem;
+  border-bottom: 1px solid var(--gray-100);
+  display: flex; align-items: center; gap: 8px;
+}
+.chat-hd .bot-avatar {
+  width: 32px; height: 32px;
+  background: var(--blue);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+}
+.chat-hd-info h3 { font-size: 14px; font-weight: 600; }
+.chat-hd-info p { font-size: 12px; color: var(--gray-400); }
+
+.chat-messages {
+  flex: 1; overflow-y: auto;
+  padding: 1.2rem;
+  display: flex; flex-direction: column; gap: .75rem;
+  scroll-behavior: smooth;
+}
+
+.msg { display: flex; gap: 8px; max-width: 85%; }
+.msg.user { margin-left: auto; flex-direction: row-reverse; }
+
+.msg-avatar {
+  width: 28px; height: 28px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; flex-shrink: 0; margin-top: 2px;
+}
+.msg.bot .msg-avatar { background: var(--blue); }
+.msg.user .msg-avatar { background: var(--gray-800); }
+
+.bubble {
+  padding: .65rem 1rem;
+  border-radius: var(--radius-lg);
+  font-size: 13.5px; line-height: 1.6;
+  max-width: 100%;
+}
+.msg.bot .bubble {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-top-left-radius: 4px;
+}
+.msg.user .bubble {
+  background: var(--blue);
+  color: #fff;
+  border-top-right-radius: 4px;
+}
+
+.sql-block {
+  margin-top: .6rem;
+  background: var(--gray-900);
+  color: #94a3b8;
+  font-family: 'DM Mono', monospace;
+  font-size: 11.5px;
+  padding: .7rem .9rem;
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+.sql-label {
+  font-size: 10px; font-weight: 600;
+  color: var(--gray-400); text-transform: uppercase; letter-spacing: .5px;
+  margin-bottom: .4rem;
+}
+
+.results-table-wrap {
+  margin-top: .8rem;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  max-height: 260px; overflow-y: auto;
+}
+.results-table-wrap table { font-size: 12px; }
+.results-table-wrap thead th { font-size: 10px; padding: 7px 10px; }
+.results-table-wrap tbody td { padding: 7px 10px; }
+
+.typing-dot {
+  display: inline-block; width: 6px; height: 6px;
+  background: var(--gray-400); border-radius: 50%;
+  animation: blink 1.2s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: .2s; }
+.typing-dot:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 0%,80%,100%{opacity:0} 40%{opacity:1} }
+
+.chat-footer {
+  padding: .9rem 1.2rem;
+  border-top: 1px solid var(--gray-100);
+}
+.chat-form { display: flex; gap: .5rem; }
+.chat-input {
+  flex: 1;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: .65rem 1rem;
+  font-size: 13.5px;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--gray-800);
+  background: var(--gray-50);
+  outline: none;
+  transition: border-color .15s, background .15s;
+}
+.chat-input:focus { border-color: var(--blue); background: #fff; }
+.chat-input::placeholder { color: var(--gray-400); }
+.send-btn {
+  background: var(--blue);
+  color: #fff; border: none;
+  border-radius: var(--radius-md);
+  padding: .65rem 1.1rem;
+  font-size: 13.5px; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+  font-family: 'DM Sans', sans-serif;
+  transition: background .15s;
+}
+.send-btn:hover { background: var(--blue-dark); }
+.send-btn:disabled { background: var(--gray-200); color: var(--gray-400); cursor: not-allowed; }
+.clear-btn {
+  font-size: 12px; color: var(--gray-400);
+  background: none; border: none; cursor: pointer;
+  padding: .4rem;
+}
+.clear-btn:hover { color: var(--red); }
+
+/* ── Véhicules & Chauffeurs tabs ──────────────────────────── */
+.filter-bar { display: flex; gap: .5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.filter-btn {
+  padding: 5px 14px;
+  border-radius: 20px; font-size: 12px; font-weight: 500;
+  cursor: pointer; border: 1px solid var(--gray-200);
+  background: #fff; color: var(--gray-600);
+  font-family: 'DM Sans', sans-serif;
+  transition: all .12s;
+}
+.filter-btn:hover, .filter-btn.active {
+  background: var(--blue); color: #fff; border-color: var(--blue);
+}
+
+/* ── Incidents form ───────────────────────────────────────── */
+.inc-layout { display: grid; grid-template-columns: 380px 1fr; gap: 1.25rem; align-items: start; }
+.form-card { background:#fff; border:1px solid var(--gray-200); border-radius:var(--radius-lg); overflow:hidden; }
+.form-card-hd { padding:.9rem 1.2rem; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; gap:8px; }
+.form-card-hd h2 { font-size:14px; font-weight:600; }
+.form-body { padding:1.2rem; display:flex; flex-direction:column; gap:1rem; }
+.form-group { display:flex; flex-direction:column; gap:5px; }
+.form-label { font-size:12px; font-weight:500; color:var(--gray-600); }
+.form-label span { color:var(--red); margin-left:2px; }
+.form-control {
+  border:1px solid var(--gray-200); border-radius:var(--radius-md);
+  padding:.6rem .9rem; font-size:13.5px;
+  font-family:'DM Sans',sans-serif; color:var(--gray-800);
+  background:var(--gray-50); outline:none;
+  transition:border-color .15s, background .15s;
+  width:100%;
+}
+.form-control:focus { border-color:var(--blue); background:#fff; }
+textarea.form-control { resize:vertical; min-height:80px; }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.gravite-btns { display:flex; gap:8px; }
+.grav-btn {
+  flex:1; padding:.5rem; border-radius:var(--radius-md);
+  font-size:12.5px; font-weight:500; cursor:pointer;
+  border:1px solid var(--gray-200); background:#fff;
+  font-family:'DM Sans',sans-serif; transition:all .12s;
+  text-align:center;
+}
+.grav-btn:hover { border-color:var(--gray-400); }
+.grav-btn.sel-faible { background:var(--green-bg); color:var(--green); border-color:#86efac; }
+.grav-btn.sel-moyen  { background:var(--amber-bg); color:var(--amber); border-color:#fcd34d; }
+.grav-btn.sel-grave  { background:var(--red-bg);   color:var(--red);   border-color:#fca5a5; }
+.submit-btn {
+  background:var(--blue); color:#fff; border:none;
+  border-radius:var(--radius-md); padding:.75rem;
+  font-size:14px; font-weight:600; cursor:pointer;
+  font-family:'DM Sans',sans-serif; transition:background .15s;
+  width:100%; margin-top:.25rem;
+}
+.submit-btn:hover { background:var(--blue-dark); }
+.submit-btn:disabled { background:var(--gray-200); color:var(--gray-400); cursor:not-allowed; }
+.toast {
+  position:fixed; bottom:1.5rem; right:1.5rem; z-index:999;
+  padding:.75rem 1.2rem; border-radius:var(--radius-md);
+  font-size:13.5px; font-weight:500;
+  display:flex; align-items:center; gap:8px;
+  box-shadow:0 4px 16px rgba(0,0,0,.15);
+  animation:slideIn .25s ease;
+}
+.toast-success { background:#166534; color:#fff; }
+.toast-error   { background:#991b1b; color:#fff; }
+@keyframes slideIn { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .chat-layout { grid-template-columns: 1fr; height: auto; }
+  .chat-sidebar { display: none; }
+  .content { padding: 1rem; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Loading skeleton ─────────────────────────────────────── */
+.skel { background: var(--gray-100); border-radius: 4px; animation: shimmer 1.4s infinite; }
+@keyframes shimmer { 0%,100%{opacity:.7} 50%{opacity:.4} }
+
+/* ── Empty state ──────────────────────────────────────────── */
+.empty { text-align: center; padding: 2rem; color: var(--gray-400); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- Header -->
+<header>
+  <div class="header-brand">
+    <div class="logo">🚌</div>
+    <h1>TranspoBot <span>Assistant IA Transport</span></h1>
+  </div>
+  <span class="api-pill" id="api-status">Connexion...</span>
+</header>
+
+<!-- Nav -->
+<nav class="nav-tabs">
+  <button class="nav-tab active" onclick="showTab('dashboard')">Tableau de bord</button>
+  <button class="nav-tab" onclick="showTab('chat')">Assistant IA</button>
+  <button class="nav-tab" onclick="showTab('vehicules')">Véhicules</button>
+  <button class="nav-tab" onclick="showTab('chauffeurs')">Chauffeurs</button>
+  <button class="nav-tab" onclick="showTab('trajets')">Trajets</button>
+  <button class="nav-tab" onclick="showTab('incidents')">Incidents</button>
+</nav>
+
+<div class="content">
+
+  <!-- ── DASHBOARD ───────────────────────────────────────── -->
+  <div class="tab-panel active" id="tab-dashboard">
+
+    <!-- KPI -->
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-accent" style="background:#1a56db"></div><div class="kpi-label">Trajets terminés</div><div class="kpi-value" id="k-total">—</div><div class="kpi-sub">total cumulé</div></div>
+      <div class="kpi-card"><div class="kpi-accent" style="background:#f59e0b"></div><div class="kpi-label">En cours</div><div class="kpi-value" id="k-cours">—</div><div class="kpi-sub">actifs maintenant</div></div>
+      <div class="kpi-card"><div class="kpi-accent" style="background:#22c55e"></div><div class="kpi-label">Véhicules actifs</div><div class="kpi-value" id="k-veh">—</div><div class="kpi-sub">flotte opérationnelle</div></div>
+      <div class="kpi-card"><div class="kpi-accent" style="background:#ef4444"></div><div class="kpi-label">Incidents ouverts</div><div class="kpi-value" id="k-inc">—</div><div class="kpi-sub">non résolus</div></div>
+      <div class="kpi-card"><div class="kpi-accent" style="background:#14b8a6"></div><div class="kpi-label">Recette totale</div><div class="kpi-value" id="k-rec">—</div><div class="kpi-sub">FCFA cumulés</div></div>
+      <div class="kpi-card"><div class="kpi-accent" style="background:#8b5cf6"></div><div class="kpi-label">Chauffeurs dispos</div><div class="kpi-value" id="k-chauf">—</div><div class="kpi-sub">disponibles</div></div>
+    </div>
+
+    <div class="grid-3">
+      <!-- Recettes par ligne -->
+      <div class="card">
+        <div class="card-body">
+          <div class="section-hd"><h2>Recettes par ligne</h2></div>
+          <div id="bars-recettes"></div>
+        </div>
+      </div>
+      <!-- Incidents -->
+      <div class="card">
+        <div class="card-body">
+          <div class="section-hd"><h2>Incidents récents</h2></div>
+          <div id="incidents-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trajets récents -->
+    <div class="card">
+      <div class="card-body">
+        <div class="section-hd"><h2>Derniers trajets</h2><small id="db-refresh-btn" style="cursor:pointer;color:var(--blue);" onclick="loadDashboard()">Actualiser</small></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ligne</th><th>Chauffeur</th><th>Véhicule</th><th>Date départ</th><th>Passagers</th><th>Recette</th><th>Statut</th></tr></thead>
+          <tbody id="db-trajets"><tr><td colspan="7" class="empty">Chargement...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CHAT ──────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-chat">
+    <div class="chat-layout">
+
+      <!-- Sidebar : Historique + Suggestions -->
+      <div class="chat-sidebar">
+        <div class="sidebar-tabs">
+          <button class="sidebar-tab active" onclick="switchSidebarTab('historique', this)">Historique</button>
+          <button class="sidebar-tab" onclick="switchSidebarTab('suggestions', this)">Suggestions</button>
+        </div>
+
+        <!-- Panneau Historique -->
+        <div class="sidebar-panel active" id="panel-historique">
+          <button class="new-chat-btn" onclick="newSession()">+ Nouvelle conversation</button>
+          <div id="hist-list"><div class="hist-empty">Aucune conversation<br>pour le moment</div></div>
+        </div>
+
+        <!-- Panneau Suggestions -->
+        <div class="sidebar-panel" id="panel-suggestions">
+          <div class="suggestions-list">
+            <div class="sugg-category">Trajets</div>
+            <button class="sugg-btn" onclick="askQ(this.textContent)">Combien de trajets cette semaine ?</button>
+            <button class="sugg-btn" onclick="askQ(this.textContent)">Quels trajets sont en cours ?</button>
+            <button class="sugg-btn" onclick="askQ(this.textContent)">Trajets du mois de mars 2026 ?</button>
+
+            <div class="sugg-category">Chauffeurs</div>
+            <button class="sugg-btn" onclick="askQ(this.textContent)">Quel chauffeur a le plus de trajets ?</button>
+            <button class="sugg-btn" onclick="askQ(this.textContent)">Quel chauffeur a le plus d'incidents ce mois ?</button>
+            <button class="sugg-btn" onclick="askQ(this.textContent)">Liste les chauffeurs disponibles</button>
+
+            <div class="sugg-category">Véhicules</div>
+            <button class="sugg-btn" onclick="askQ(this.textContent)">Quels véhicules sont en maintenance ?</button>
+            <button class="sugg-btn" onclick="askQ(this.textContent)">Véhicule avec le plus de kilomètres ?</button>
+
+            <div class="sugg-category">Finances</div>
+            <button class="sugg-btn" onclick="askQ(this.textContent)">Recette totale du mois de mars 2026 ?</button>
+            <button class="sugg-btn" onclick="askQ(this.textContent)">Quelle ligne génère le plus de recettes ?</button>
+
+            <div class="sugg-category">Incidents</div>
+            <button class="sugg-btn" onclick="askQ(this.textContent)">Liste les incidents graves non résolus</button>
+            <button class="sugg-btn" onclick="askQ(this.textContent)">Combien d'incidents ce mois-ci ?</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat main -->
+      <div class="chat-main">
+        <div class="chat-hd">
+          <div class="bot-avatar">🤖</div>
+          <div class="chat-hd-info">
+            <h3>TranspoBot IA</h3>
+            <p>Posez vos questions en français ou anglais</p>
+          </div>
+          <button class="clear-btn" onclick="clearChat()" title="Effacer la conversation">🗑</button>
+        </div>
+
+        <div class="chat-messages" id="chat-messages">
+        </div>
+
+        <div class="chat-footer">
+          <div class="chat-form">
+            <input type="text" class="chat-input" id="chat-input"
+              placeholder="Ex: Combien de trajets cette semaine ?"
+              onkeypress="if(event.key==='Enter')sendMsg()">
+            <button class="send-btn" id="send-btn" onclick="sendMsg()">Envoyer ↗</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VÉHICULES ──────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-vehicules">
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterVeh('all',this)">Tous</button>
+      <button class="filter-btn" onclick="filterVeh('actif',this)">Actifs</button>
+      <button class="filter-btn" onclick="filterVeh('maintenance',this)">Maintenance</button>
+      <button class="filter-btn" onclick="filterVeh('hors_service',this)">Hors service</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Immatriculation</th><th>Type</th><th>Capacité</th><th>Kilométrage</th><th>Acquisition</th><th>Statut</th></tr></thead>
+          <tbody id="veh-tbody"><tr><td colspan="6" class="empty">Chargement...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CHAUFFEURS ─────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-chauffeurs">
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterChauf('all',this)">Tous</button>
+      <button class="filter-btn" onclick="filterChauf('true',this)">Disponibles</button>
+      <button class="filter-btn" onclick="filterChauf('false',this)">Non disponibles</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nom</th><th>Prénom</th><th>Téléphone</th><th>N° Permis</th><th>Catégorie</th><th>Véhicule</th><th>Embauche</th><th>Disponibilité</th></tr></thead>
+          <tbody id="chauf-tbody"><tr><td colspan="8" class="empty">Chargement...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TRAJETS ─────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-trajets">
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterTraj('all',this)">Tous</button>
+      <button class="filter-btn" onclick="filterTraj('termine',this)">Terminés</button>
+      <button class="filter-btn" onclick="filterTraj('en_cours',this)">En cours</button>
+      <button class="filter-btn" onclick="filterTraj('planifie',this)">Planifiés</button>
+      <button class="filter-btn" onclick="filterTraj('annule',this)">Annulés</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Ligne</th><th>Chauffeur</th><th>Véhicule</th><th>Départ</th><th>Arrivée</th><th>Passagers</th><th>Recette (FCFA)</th><th>Statut</th></tr></thead>
+          <tbody id="traj-tbody"><tr><td colspan="9" class="empty">Chargement...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+  <!-- ── INCIDENTS ─────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-incidents" style="padding:1.5rem;max-width:1400px;margin:0 auto;">
+    <div class="inc-layout">
+
+      <!-- Formulaire d'enregistrement -->
+      <div class="form-card">
+        <div class="form-card-hd">
+          <span style="font-size:18px">⚠️</span>
+          <h2>Enregistrer un incident</h2>
+        </div>
+        <div class="form-body">
+
+          <div class="form-group">
+            <label class="form-label">Trajet concerné <span>*</span></label>
+            <select class="form-control" id="inc-trajet">
+              <option value="">-- Sélectionner un trajet --</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Type d'incident <span>*</span></label>
+              <select class="form-control" id="inc-type">
+                <option value="">-- Choisir --</option>
+                <option value="panne">🔧 Panne</option>
+                <option value="accident">💥 Accident</option>
+                <option value="retard">⏱ Retard</option>
+                <option value="autre">📋 Autre</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Date et heure <span>*</span></label>
+              <input type="datetime-local" class="form-control" id="inc-date">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Niveau de gravité <span>*</span></label>
+            <div class="gravite-btns">
+              <button class="grav-btn" id="grav-faible" onclick="selectGravite('faible')">🟢 Faible</button>
+              <button class="grav-btn" id="grav-moyen"  onclick="selectGravite('moyen')">🟡 Moyen</button>
+              <button class="grav-btn" id="grav-grave"  onclick="selectGravite('grave')">🔴 Grave</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Description <span>*</span></label>
+            <textarea class="form-control" id="inc-desc" placeholder="Décrivez l'incident en détail..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="inc-resolu" style="width:16px;height:16px;accent-color:var(--blue)">
+              Incident déjà résolu
+            </label>
+          </div>
+
+          <button class="submit-btn" id="inc-submit" onclick="submitIncident()">
+            Enregistrer l'incident
+          </button>
+
+          <div id="inc-form-msg" style="display:none;font-size:13px;text-align:center;padding:.5rem;border-radius:var(--radius-md);"></div>
+        </div>
+      </div>
+
+      <!-- Liste des incidents -->
+      <div>
+        <div class="section-hd" style="margin-bottom:1rem;">
+          <h2 style="font-size:14px;font-weight:600;">Incidents enregistrés</h2>
+          <div style="display:flex;gap:.5rem;align-items:center;">
+            <select class="form-control" id="inc-filter-grav" onchange="filterIncidents()" style="width:auto;padding:.35rem .7rem;font-size:12px;">
+              <option value="">Toutes gravités</option>
+              <option value="faible">Faible</option>
+              <option value="moyen">Moyen</option>
+              <option value="grave">Grave</option>
+            </select>
+            <select class="form-control" id="inc-filter-resolu" onchange="filterIncidents()" style="width:auto;padding:.35rem .7rem;font-size:12px;">
+              <option value="">Tous statuts</option>
+              <option value="false">Non résolus</option>
+              <option value="true">Résolus</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                  <th>Trajet / Ligne</th>
+                  <th>Date</th>
+                  <th>Gravité</th>
+                  <th>Résolu</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="inc-tbody">
+                <tr><td colspan="8" class="empty">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /content -->
+</div><!-- /app -->
+
+<script>
+// ── Configuration ─────────────────────────────────────────────
+const API = '';  // ← Mettre l'URL de votre backend ici ex: 'https://mon-app.railway.app'
+
+// ── Données de démo (si API hors ligne) ───────────────────────
+const DEMO = {
+  stats: { total_trajets:6, trajets_en_cours:1, vehicules_actifs:4, incidents_ouverts:1, recette_totale:557000, chauffeurs_dispos:3 },
+  vehicules: [
+    {id:1,immatriculation:'DK-1234-AB',type:'bus',capacite:60,statut:'actif',kilometrage:45000,date_acquisition:'2021-03-15'},
+    {id:2,immatriculation:'DK-5678-CD',type:'minibus',capacite:25,statut:'actif',kilometrage:32000,date_acquisition:'2022-06-01'},
+    {id:3,immatriculation:'DK-9012-EF',type:'bus',capacite:60,statut:'maintenance',kilometrage:78000,date_acquisition:'2019-11-20'},
+    {id:4,immatriculation:'DK-3456-GH',type:'taxi',capacite:5,statut:'actif',kilometrage:120000,date_acquisition:'2020-01-10'},
+    {id:5,immatriculation:'DK-7890-IJ',type:'minibus',capacite:25,statut:'actif',kilometrage:15000,date_acquisition:'2023-09-05'},
+  ],
+  chauffeurs: [
+    {id:1,nom:'DIOP',prenom:'Mamadou',telephone:'+221771234567',numero_permis:'P-2019-001',categorie_permis:'D',disponibilite:true,immatriculation:'DK-1234-AB',date_embauche:'2019-04-01'},
+    {id:2,nom:'FALL',prenom:'Ibrahima',telephone:'+221772345678',numero_permis:'P-2020-002',categorie_permis:'D',disponibilite:true,immatriculation:'DK-5678-CD',date_embauche:'2020-07-15'},
+    {id:3,nom:'NDIAYE',prenom:'Fatou',telephone:'+221773456789',numero_permis:'P-2021-003',categorie_permis:'B',disponibilite:true,immatriculation:'DK-3456-GH',date_embauche:'2021-02-01'},
+    {id:4,nom:'SECK',prenom:'Ousmane',telephone:'+221774567890',numero_permis:'P-2022-004',categorie_permis:'D',disponibilite:true,immatriculation:'DK-7890-IJ',date_embauche:'2022-10-20'},
+    {id:5,nom:'BA',prenom:'Aminata',telephone:'+221775678901',numero_permis:'P-2023-005',categorie_permis:'D',disponibilite:false,immatriculation:null,date_embauche:'2023-01-10'},
+  ],
+  trajets: [
+    {id:1,ligne:'Ligne Dakar-Thiès',code:'L1',chauffeur:'Mamadou DIOP',immatriculation:'DK-1234-AB',date_heure_depart:'2026-03-01T06:00:00',date_heure_arrivee:'2026-03-01T07:30:00',statut:'termine',nb_passagers:55,recette:137500},
+    {id:2,ligne:'Ligne Dakar-Thiès',code:'L1',chauffeur:'Ibrahima FALL',immatriculation:'DK-5678-CD',date_heure_depart:'2026-03-01T08:00:00',date_heure_arrivee:'2026-03-01T09:30:00',statut:'termine',nb_passagers:20,recette:50000},
+    {id:3,ligne:'Ligne Dakar-Mbour',code:'L2',chauffeur:'Fatou NDIAYE',immatriculation:'DK-3456-GH',date_heure_depart:'2026-03-02T07:00:00',date_heure_arrivee:'2026-03-02T09:00:00',statut:'termine',nb_passagers:4,recette:12000},
+    {id:4,ligne:'Ligne Centre-Banlieue',code:'L3',chauffeur:'Ousmane SECK',immatriculation:'DK-7890-IJ',date_heure_depart:'2026-03-05T07:30:00',date_heure_arrivee:'2026-03-05T08:15:00',statut:'termine',nb_passagers:22,recette:11000},
+    {id:5,ligne:'Ligne Dakar-Thiès',code:'L1',chauffeur:'Mamadou DIOP',immatriculation:'DK-1234-AB',date_heure_depart:'2026-03-10T06:00:00',date_heure_arrivee:'2026-03-10T07:30:00',statut:'termine',nb_passagers:58,recette:145000},
+    {id:6,ligne:'Ligne Aéroport',code:'L4',chauffeur:'Ibrahima FALL',immatriculation:'DK-5678-CD',date_heure_depart:'2026-03-12T09:00:00',date_heure_arrivee:'2026-03-12T10:00:00',statut:'termine',nb_passagers:18,recette:90000},
+    {id:7,ligne:'Ligne Dakar-Thiès',code:'L1',chauffeur:'Aminata BA',immatriculation:'DK-1234-AB',date_heure_depart:'2026-03-20T06:00:00',date_heure_arrivee:null,statut:'en_cours',nb_passagers:45,recette:112500},
+  ]
+};
+
+// ── Utilitaires ───────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmt = n => Number(n||0).toLocaleString('fr-FR');
+const fmtDate = d => d ? new Date(d).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+const fmtDateShort = d => d ? new Date(d).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+
+function badge(s) {
+  const map = {
+    termine:'b-green', en_cours:'b-amber', planifie:'b-blue', annule:'b-red',
+    actif:'b-green', maintenance:'b-amber', hors_service:'b-red',
+    bus:'b-blue', minibus:'b-blue', taxi:'b-gray',
+    grave:'b-red', moyen:'b-amber', faible:'b-green',
+  };
+  return `<span class="badge ${map[s]||'b-gray'}">${s}</span>`;
+}
+
+// ── State ──────────────────────────────────────────────────────
+let allVehicules = [], allChauffeurs = [], allTrajets = [];
+let chatHistory = [];
+let isThinking = false;
+
+// ── Tab navigation ─────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  $(`tab-${name}`).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── API fetch helper ───────────────────────────────────────────
+async function apiFetch(path, opts={}) {
+  const url = (API || '') + path;
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+// ── Dashboard ──────────────────────────────────────────────────
+async function loadDashboard() {
+  // Stats
+  try {
+    const d = await apiFetch('/api/stats');
+    $('k-total').textContent = fmt(d.total_trajets);
+    $('k-cours').textContent = fmt(d.trajets_en_cours);
+    $('k-veh').textContent   = fmt(d.vehicules_actifs);
+    $('k-inc').textContent   = fmt(d.incidents_ouverts);
+    const rec = d.recette_totale||0;
+    $('k-rec').textContent = rec >= 1000000 ? (rec/1000000).toFixed(1)+'M' : fmt(rec);
+    $('k-chauf').textContent = fmt(d.chauffeurs_dispos);
+    setApiStatus(true);
+  } catch {
+    const d = DEMO.stats;
+    $('k-total').textContent = d.total_trajets;
+    $('k-cours').textContent = d.trajets_en_cours;
+    $('k-veh').textContent   = d.vehicules_actifs;
+    $('k-inc').textContent   = d.incidents_ouverts;
+    $('k-rec').textContent   = '557K';
+    $('k-chauf').textContent = d.chauffeurs_dispos;
+    setApiStatus(false);
+  }
+
+  // Trajets récents
+  try {
+    const data = await apiFetch('/api/trajets/recent');
+    renderDbTrajets(data);
+  } catch { renderDbTrajets(DEMO.trajets); }
+
+  // Barres recettes (statique démo)
+  renderBars();
+  renderIncidents();
+}
+
+function renderDbTrajets(data) {
+  $('db-trajets').innerHTML = data.slice(0,10).map(t => `<tr>
+    <td>${t.ligne||t.code||'—'}</td>
+    <td>${t.chauffeur||'—'}</td>
+    <td class="mono">${t.immatriculation||'—'}</td>
+    <td>${fmtDate(t.date_heure_depart)}</td>
+    <td style="text-align:center">${t.nb_passagers??'—'}</td>
+    <td style="text-align:right" class="mono">${t.recette ? fmt(t.recette)+' F' : '—'}</td>
+    <td>${badge(t.statut)}</td>
+  </tr>`).join('') || '<tr><td colspan="7" class="empty">Aucun trajet</td></tr>';
+}
+
+function renderBars() {
+  const lignes = [
+    {nom:'Dakar-Thiès', rec:344500},
+    {nom:'Aéroport',    rec:90000},
+    {nom:'Dakar-Mbour', rec:12000},
+    {nom:'Centre-Ban.', rec:11000},
+  ];
+  const max = Math.max(...lignes.map(l=>l.rec));
+  const colors = ['#1a56db','#14b8a6','#8b5cf6','#f59e0b'];
+  $('bars-recettes').innerHTML = lignes.map((l,i) => `
+    <div class="bar-row">
+      <div class="bar-lbl">${l.nom}</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(l.rec/max*100)}%;background:${colors[i]}"></div></div>
+      <div class="bar-val">${fmt(l.rec)} F</div>
+    </div>`).join('');
+}
+
+function renderIncidents() {
+  const data = [
+    {desc:'Accrochage léger au rond-point', gravite:'grave', ligne:'L4 Aéroport', resolu:false},
+    {desc:'Crevaison pneu avant droit',      gravite:'moyen', ligne:'L2 Mbour',    resolu:true},
+    {desc:'Embouteillage centre-ville',      gravite:'faible',ligne:'L1 Dakar-Thiès',resolu:true},
+  ];
+  const dc = {grave:'d-red',moyen:'d-amber',faible:'d-green'};
+  $('incidents-list').innerHTML = data.map(i => `
+    <div class="inc-row">
+      <div class="inc-dot ${dc[i.gravite]}"></div>
+      <div>
+        <div class="inc-desc">${i.desc}</div>
+        <div class="inc-meta">${i.ligne} · ${badge(i.gravite)} · <span style="color:${i.resolu?'var(--green)':'var(--red)'}">${i.resolu?'résolu':'ouvert'}</span></div>
+      </div>
+    </div>`).join('');
+}
+
+function setApiStatus(ok) {
+  const el = $('api-status');
+  el.textContent = ok ? 'API connectée' : 'Mode démo';
+  el.className = 'api-pill' + (ok ? '' : ' offline');
+}
+
+// ── Véhicules ─────────────────────────────────────────────────
+async function loadVehicules() {
+  try { allVehicules = await apiFetch('/api/vehicules'); }
+  catch { allVehicules = DEMO.vehicules; }
+  renderVehicules(allVehicules);
+}
+function renderVehicules(data) {
+  $('veh-tbody').innerHTML = data.map(v => `<tr>
+    <td class="mono">${v.immatriculation}</td>
+    <td>${badge(v.type)}</td>
+    <td>${v.capacite} places</td>
+    <td class="mono">${fmt(v.kilometrage)} km</td>
+    <td>${fmtDateShort(v.date_acquisition)}</td>
+    <td>${badge(v.statut)}</td>
+  </tr>`).join('') || '<tr><td colspan="6" class="empty">Aucun véhicule</td></tr>';
+}
+function filterVeh(f, btn) {
+  document.querySelectorAll('#tab-vehicules .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderVehicules(f === 'all' ? allVehicules : allVehicules.filter(v => v.statut === f));
+}
+
+// ── Chauffeurs ────────────────────────────────────────────────
+async function loadChauffeurs() {
+  try { allChauffeurs = await apiFetch('/api/chauffeurs'); }
+  catch { allChauffeurs = DEMO.chauffeurs; }
+  renderChauffeurs(allChauffeurs);
+}
+function renderChauffeurs(data) {
+  $('chauf-tbody').innerHTML = data.map(c => `<tr>
+    <td style="font-weight:500">${c.nom}</td>
+    <td>${c.prenom}</td>
+    <td class="mono">${c.telephone||'—'}</td>
+    <td class="mono" style="font-size:12px">${c.numero_permis}</td>
+    <td><span class="badge b-blue">${c.categorie_permis||'—'}</span></td>
+    <td class="mono" style="font-size:12px">${c.immatriculation||'—'}</td>
+    <td>${fmtDateShort(c.date_embauche)}</td>
+    <td>${c.disponibilite ? '<span class="badge b-green">oui</span>' : '<span class="badge b-gray">non</span>'}</td>
+  </tr>`).join('') || '<tr><td colspan="8" class="empty">Aucun chauffeur</td></tr>';
+}
+function filterChauf(f, btn) {
+  document.querySelectorAll('#tab-chauffeurs .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderChauffeurs(f === 'all' ? allChauffeurs : allChauffeurs.filter(c => String(c.disponibilite) === f));
+}
+
+// ── Trajets ────────────────────────────────────────────────────
+async function loadTrajets() {
+  try { allTrajets = await apiFetch('/api/trajets/recent'); }
+  catch { allTrajets = DEMO.trajets; }
+  renderTrajets(allTrajets);
+}
+function renderTrajets(data) {
+  $('traj-tbody').innerHTML = data.map(t => `<tr>
+    <td class="mono" style="color:var(--gray-400)">#${t.id}</td>
+    <td>${t.ligne||'—'}</td>
+    <td>${t.chauffeur||'—'}</td>
+    <td class="mono">${t.immatriculation||'—'}</td>
+    <td>${fmtDate(t.date_heure_depart)}</td>
+    <td>${t.date_heure_arrivee ? fmtDate(t.date_heure_arrivee) : '—'}</td>
+    <td style="text-align:center">${t.nb_passagers??'—'}</td>
+    <td style="text-align:right" class="mono">${t.recette ? fmt(t.recette)+' F' : '—'}</td>
+    <td>${badge(t.statut)}</td>
+  </tr>`).join('') || '<tr><td colspan="9" class="empty">Aucun trajet</td></tr>';
+}
+function filterTraj(f, btn) {
+  document.querySelectorAll('#tab-trajets .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTrajets(f === 'all' ? allTrajets : allTrajets.filter(t => t.statut === f));
+}
+
+// ── Chat & Historique ─────────────────────────────────────────
+// Structure sessions : [{id, title, date, messages:[], history:[]}]
+let sessions = JSON.parse(localStorage.getItem('transpobot_sessions') || '[]');
+let currentSessionId = null;
+
+function saveSessions() {
+  localStorage.setItem('transpobot_sessions', JSON.stringify(sessions));
+}
+
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function newSession() {
+  // Sauvegarder session courante si elle a des messages
+  saveCurrentSession();
+
+  const id = genId();
+  const sess = {
+    id,
+    title: 'Nouvelle conversation',
+    date: new Date().toISOString(),
+    messages: [],
+    history: []
+  };
+  sessions.unshift(sess);
+  saveSessions();
+  currentSessionId = id;
+  chatHistory = [];
+  renderHistList();
+  renderSessionMessages([]);
+}
+
+function saveCurrentSession() {
+  if (!currentSessionId) return;
+  const idx = sessions.findIndex(s => s.id === currentSessionId);
+  if (idx === -1) return;
+  // Lire les messages actuels du DOM
+  const msgs = [];
+  $('chat-messages').querySelectorAll('.msg').forEach(el => {
+    msgs.push({ role: el.classList.contains('user') ? 'user' : 'bot', html: el.querySelector('div:last-child').innerHTML });
+  });
+  sessions[idx].messages = msgs;
+  sessions[idx].history = [...chatHistory];
+  saveSessions();
+}
+
+function loadSession(id) {
+  saveCurrentSession();
+  const sess = sessions.find(s => s.id === id);
+  if (!sess) return;
+  currentSessionId = id;
+  chatHistory = [...(sess.history || [])];
+  renderHistList();
+  renderSessionMessages(sess.messages);
+}
+
+function deleteSession(id, e) {
+  e.stopPropagation();
+  sessions = sessions.filter(s => s.id !== id);
+  saveSessions();
+  if (currentSessionId === id) {
+    currentSessionId = null;
+    chatHistory = [];
+    renderSessionMessages([]);
+  }
+  renderHistList();
+}
+
+function renderHistList() {
+  const el = $('hist-list');
+  if (!sessions.length) {
+    el.innerHTML = '<div class="hist-empty">Aucune conversation<br>pour le moment</div>';
+    return;
+  }
+  el.innerHTML = sessions.map(s => {
+    const d = new Date(s.date);
+    const dateStr = d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'}) + ' ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+    const msgCount = s.messages.filter(m => m.role === 'user').length;
+    const isActive = s.id === currentSessionId;
+    return `<div class="hist-session ${isActive?'active-sess':''}" onclick="loadSession('${s.id}')">
+      <div class="hist-icon">💬</div>
+      <div class="hist-info">
+        <div class="hist-title">${s.title}</div>
+        <div class="hist-meta">${dateStr} · ${msgCount} question${msgCount>1?'s':''}</div>
+      </div>
+      <button class="hist-del" onclick="deleteSession('${s.id}', event)" title="Supprimer">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function renderSessionMessages(messages) {
+  const box = $('chat-messages');
+  if (!messages.length) {
+    box.innerHTML = `<div class="msg bot">
+      <div class="msg-avatar">🤖</div>
+      <div><div class="bubble">
+        Bonjour ! Je suis <strong>TranspoBot</strong>, votre assistant IA de transport urbain.<br>
+        Je peux répondre à toutes vos questions sur la flotte, les chauffeurs, les trajets et les incidents.<br><br>
+        Choisissez une question à gauche ou posez la vôtre ci-dessous.
+      </div></div>
+    </div>`;
+    return;
+  }
+  box.innerHTML = messages.map(m => `
+    <div class="msg ${m.role}">
+      <div class="msg-avatar">${m.role==='bot'?'🤖':'👤'}</div>
+      <div>${m.html}</div>
+    </div>`).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function switchSidebarTab(tab, btn) {
+  document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.sidebar-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  $(`panel-${tab}`).classList.add('active');
+}
+
+function updateSessionTitle(question) {
+  if (!currentSessionId) return;
+  const idx = sessions.findIndex(s => s.id === currentSessionId);
+  if (idx === -1) return;
+  if (sessions[idx].title === 'Nouvelle conversation' || sessions[idx].messages.filter(m=>m.role==='user').length === 0) {
+    sessions[idx].title = question.length > 38 ? question.slice(0, 38) + '…' : question;
+    saveSessions();
+    renderHistList();
+  }
+}
+
+function askQ(q) {
+  showTab('chat');
+  document.querySelectorAll('.nav-tab')[1].classList.add('active');
+  document.querySelectorAll('.nav-tab')[0].classList.remove('active');
+  $('chat-input').value = q;
+  sendMsg();
+}
+
+function addMsg(role, content) {
+  const box = $('chat-messages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `<div class="msg-avatar">${role==='bot'?'🤖':'👤'}</div><div>${content}</div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+
+function typing() {
+  return addMsg('bot', '<div class="bubble"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>');
+}
+
+function renderResults(data) {
+  if (!data || !data.length) return '';
+  const keys = Object.keys(data[0]);
+  const rows = data.map(r => `<tr>${keys.map(k=>`<td>${r[k]??'—'}</td>`).join('')}</tr>`).join('');
+  return `<div class="results-table-wrap"><table>
+    <thead><tr>${keys.map(k=>`<th>${k}</th>`).join('')}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+async function sendMsg() {
+  if (isThinking) return;
+  const input = $('chat-input');
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+  isThinking = true;
+  $('send-btn').disabled = true;
+
+  // Créer session si aucune
+  if (!currentSessionId) {
+    const id = genId();
+    sessions.unshift({ id, title: 'Nouvelle conversation', date: new Date().toISOString(), messages: [], history: [] });
+    currentSessionId = id;
+    saveSessions();
+    renderHistList();
+  }
+
+  addMsg('user', `<div class="bubble">${q}</div>`);
+  const loader = typing();
+
+  try {
+    const res = await apiFetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ question: q, history: chatHistory })
+    });
+
+    loader.remove();
+
+    const sqlBlock = res.sql
+      ? `<div class="sql-label">Requête SQL générée</div><div class="sql-block">${res.sql}</div>`
+      : '';
+    const count = res.count > 0 ? ` <span style="color:var(--gray-400);font-size:12px">(${res.count} résultat${res.count>1?'s':''})</span>` : '';
+    const tableHtml = renderResults(res.data);
+
+    addMsg('bot', `<div class="bubble">
+      <div>${res.answer}${count}</div>
+      ${sqlBlock}
+      ${tableHtml}
+    </div>`);
+
+    chatHistory.push({role:'user', content:q});
+    chatHistory.push({role:'assistant', content:res.answer});
+    if (chatHistory.length > 12) chatHistory = chatHistory.slice(-12);
+
+  } catch(e) {
+    loader.remove();
+    addMsg('bot', `<div class="bubble" style="border-color:var(--red-bg)">
+      ⚠️ Impossible de contacter le backend.<br>
+      <span style="font-size:12px;color:var(--gray-400)">Vérifiez que le serveur tourne sur <code>${API||'http://localhost:8000'}</code></span>
+    </div>`);
+  }
+
+  updateSessionTitle(q);
+  saveCurrentSession();
+  renderHistList();
+
+  isThinking = false;
+  $('send-btn').disabled = false;
+  $('chat-input').focus();
+}
+
+function clearChat() {
+  if (currentSessionId) {
+    const idx = sessions.findIndex(s => s.id === currentSessionId);
+    if (idx !== -1) { sessions[idx].messages = []; sessions[idx].history = []; saveSessions(); }
+  }
+  chatHistory = [];
+  renderSessionMessages([]);
+  renderHistList();
+}
+
+// Init historique
+renderHistList();
+
+// ── Incidents ─────────────────────────────────────────────────
+let allIncidents = [];
+let selectedGravite = '';
+
+const DEMO_INCIDENTS = [
+  {id:1, trajet_id:2, type:'retard',   description:'Embouteillage au centre-ville', gravite:'faible', date_incident:'2026-03-01T08:45:00', resolu:true,  ligne:'Ligne Dakar-Thiès', chauffeur:'Ibrahima FALL'},
+  {id:2, trajet_id:3, type:'panne',    description:'Crevaison pneu avant droit',    gravite:'moyen',  date_incident:'2026-03-02T07:30:00', resolu:true,  ligne:'Ligne Dakar-Mbour', chauffeur:'Fatou NDIAYE'},
+  {id:3, trajet_id:6, type:'accident', description:'Accrochage léger au rond-point',gravite:'grave',  date_incident:'2026-03-12T09:20:00', resolu:false, ligne:'Ligne Aéroport',    chauffeur:'Ibrahima FALL'},
+];
+
+function selectGravite(val) {
+  selectedGravite = val;
+  ['faible','moyen','grave'].forEach(g => {
+    const btn = $(`grav-${g}`);
+    btn.className = 'grav-btn' + (g === val ? ` sel-${g}` : '');
+  });
+}
+
+async function loadIncidentForm() {
+  // Remplir le select des trajets
+  const sel = $('inc-trajet');
+  const trajets = allTrajets.length ? allTrajets : DEMO.trajets;
+  sel.innerHTML = '<option value="">-- Sélectionner un trajet --</option>' +
+    trajets.map(t => `<option value="${t.id}">#${t.id} — ${t.ligne||'Trajet'} · ${t.chauffeur||''} · ${fmtDateShort(t.date_heure_depart)}</option>`).join('');
+  // Date/heure par défaut = maintenant
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  $('inc-date').value = now.toISOString().slice(0,16);
+}
+
+async function loadIncidents() {
+  try {
+    allIncidents = await apiFetch('/api/incidents/recent');
+  } catch {
+    allIncidents = DEMO_INCIDENTS;
+  }
+  renderIncidentsList(allIncidents);
+}
+
+function renderIncidentsList(data) {
+  const tbody = $('inc-tbody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">Aucun incident enregistré</td></tr>';
+    return;
+  }
+  const typeIcon = { panne:'🔧', accident:'💥', retard:'⏱', autre:'📋' };
+  tbody.innerHTML = data.map(i => `<tr>
+    <td class="mono" style="color:var(--gray-400)">#${i.id}</td>
+    <td>${typeIcon[i.type]||''} ${i.type}</td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${i.description}">${i.description}</td>
+    <td style="font-size:12px">${i.ligne||'—'}<br><span style="color:var(--gray-400)">${i.chauffeur||''}</span></td>
+    <td style="font-size:12px">${fmtDate(i.date_incident)}</td>
+    <td>${badge(i.gravite)}</td>
+    <td>${i.resolu
+      ? '<span class="badge b-green">✓ résolu</span>'
+      : '<span class="badge b-red">✗ ouvert</span>'}</td>
+    <td>
+      ${!i.resolu ? `<button onclick="markResolu(${i.id})" style="font-size:11px;padding:3px 8px;border-radius:6px;background:var(--green-bg);color:var(--green);border:1px solid #86efac;cursor:pointer;font-family:'DM Sans',sans-serif;">Résoudre</button>` : ''}
+    </td>
+  </tr>`).join('');
+}
+
+function filterIncidents() {
+  const grav   = $('inc-filter-grav').value;
+  const resolu = $('inc-filter-resolu').value;
+  let filtered = allIncidents;
+  if (grav)   filtered = filtered.filter(i => i.gravite === grav);
+  if (resolu !== '') filtered = filtered.filter(i => String(i.resolu) === resolu);
+  renderIncidentsList(filtered);
+}
+
+async function markResolu(id) {
+  // En mode démo : mettre à jour localement
+  const idx = allIncidents.findIndex(i => i.id === id);
+  if (idx !== -1) { allIncidents[idx].resolu = true; }
+  // Avec API réelle : await apiFetch(`/api/incidents/${id}/resoudre`, {method:'PATCH'});
+  renderIncidentsList(allIncidents);
+  showToast('✓ Incident marqué comme résolu', 'success');
+  // Mettre à jour le KPI dashboard
+  const openCount = allIncidents.filter(i => !i.resolu).length;
+  $('k-inc').textContent = openCount;
+}
+
+async function submitIncident() {
+  const trajetId   = $('inc-trajet').value;
+  const type       = $('inc-type').value;
+  const dateInc    = $('inc-date').value;
+  const desc       = $('inc-desc').value.trim();
+  const resolu     = $('inc-resolu').checked;
+  const msgEl      = $('inc-form-msg');
+
+  // Validation
+  if (!trajetId || !type || !dateInc || !desc || !selectedGravite) {
+    msgEl.style.display = 'block';
+    msgEl.style.background = 'var(--red-bg)';
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = '⚠️ Veuillez remplir tous les champs obligatoires.';
+    return;
+  }
+
+  $('inc-submit').disabled = true;
+  $('inc-submit').textContent = 'Enregistrement...';
+
+  const payload = {
+    trajet_id: parseInt(trajetId),
+    type, description: desc,
+    gravite: selectedGravite,
+    date_incident: dateInc.replace('T',' ') + ':00',
+    resolu
+  };
+
+  try {
+    // Tentative API réelle
+    await apiFetch('/api/incidents', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    showToast('✓ Incident enregistré avec succès', 'success');
+  } catch {
+    // Mode démo : ajout local
+    const newId = Math.max(0, ...allIncidents.map(i=>i.id)) + 1;
+    const trajet = (allTrajets.length ? allTrajets : DEMO.trajets).find(t => t.id == trajetId);
+    allIncidents.unshift({
+      id: newId,
+      trajet_id: parseInt(trajetId),
+      type, description: desc,
+      gravite: selectedGravite,
+      date_incident: payload.date_incident,
+      resolu,
+      ligne: trajet?.ligne || 'Trajet #' + trajetId,
+      chauffeur: trajet?.chauffeur || '—'
+    });
+    showToast('✓ Incident enregistré (mode démo)', 'success');
+  }
+
+  // Reset formulaire
+  $('inc-trajet').value = '';
+  $('inc-type').value = '';
+  $('inc-desc').value = '';
+  $('inc-resolu').checked = false;
+  selectedGravite = '';
+  ['faible','moyen','grave'].forEach(g => { $(`grav-${g}`).className = 'grav-btn'; });
+  msgEl.style.display = 'none';
+  $('inc-submit').disabled = false;
+  $('inc-submit').textContent = 'Enregistrer l\'incident';
+
+  renderIncidentsList(allIncidents);
+  // MAJ KPI
+  $('k-inc').textContent = allIncidents.filter(i => !i.resolu).length;
+}
+
+function showToast(msg, type) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ── Init ───────────────────────────────────────────────────────
+loadDashboard();
+loadVehicules();
+loadChauffeurs();
+loadTrajets();
+loadIncidents();
+loadIncidentForm();
+renderSessionMessages([]);
+</script>
+</body>
+</html>
