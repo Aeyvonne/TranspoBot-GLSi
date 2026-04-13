@@ -6,26 +6,28 @@
 
 ##  Équipe & Rôles
 
-| # | Membre | Rôle | Branche Git |
-|---|--------|------|-------------|
-| M1 | **Arame Yvonne** |  Chef de projet + BDD MySQL | `feature/m1-bdd` |
-| M2 | **Ndeye Khady** |  Backend FastAPI (Python) | `feature/m2-backend` |
-| M3 | **Aminata Ndiaye** |  Intégration LLM (Text-to-SQL) | `feature/m3-llm` |
-| M4 | **Ndeye Maty** |  Frontend (HTML/CSS/JS) | `feature/m4-frontend` |
-| M5 | **Mame Dior** |  Déploiement + Rapport + PowerPoint | `feature/m5-deploiement` |
+| Membre | Rôle | Branche Git |
+|--------|------|-------------|
+| **Arame Yvonne** |  Chef de projet + BDD MySQL | `feature/bdd` |
+| **Ndeye Khady** |  Backend FastAPI (Python) | `feature/backend` |
+| **Aminata Ndiaye** |  Intégration LLM (Text-to-SQL) | `feature/llm` |
+| **Ndeye Maty** |  Frontend (HTML/CSS/JS) | `feature/frontend` |
+| **Mame Dior** |  Déploiement + Rapport + PowerPoint | `feature/ deploiement` |
 
 ---
 
 ##  Structure du projet
 
 ```
-transpobot/
-├── app.py               # Backend FastAPI (Python) — M2
-├── schema.sql           # Schéma + données de test MySQL — M1
-├── index.html           # Interface web frontend — M4
-├── requirements.txt     # Dépendances Python
-├── .env.example         # Variables d'environnement (modèle)
-└── .env                 # ⚠️ Ne pas committer ! (dans .gitignore)
+TranspoBot_GLSi_Starter/
+├── README.md                    # Documentation du projet
+├── .gitignore                   # Fichiers exclus de Git
+└── transpobot/
+    ├── app.py                   # Backend FastAPI (Python) — M2
+    ├── schema.sql               # Schéma + données de test MySQL — M1
+    ├── index.html               # Interface web frontend — M4
+    ├── requirements.txt         # Dépendances Python
+    └── .env.example             # Variables d'environnement (modèle)
 ```
 
 ---
