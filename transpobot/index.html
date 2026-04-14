@@ -3,182 +3,1126 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TranspoBot — Assistant IA Transport</title>
+<title>TranspoBot — Gestion Transport Urbain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a202c; }
-  header { background: #1a56db; color: white; padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; }
-  header h1 { font-size: 1.4rem; }
-  header span { font-size: 2rem; }
-  .container { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
-  .card { background: white; border-radius: 12px; padding: 1.2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 1rem; }
-  .stat { background: #eff6ff; border-radius: 8px; padding: 0.8rem; text-align: center; }
-  .stat .val { font-size: 1.8rem; font-weight: bold; color: #1a56db; }
-  .stat .lbl { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
-  /* Chat */
-  .chat-box { height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #f8fafc; }
-  .msg { margin-bottom: 0.8rem; }
-  .msg.user .bubble { background: #1a56db; color: white; margin-left: auto; }
-  .msg.bot .bubble { background: white; border: 1px solid #e2e8f0; }
-  .bubble { display: inline-block; padding: 0.6rem 1rem; border-radius: 12px; max-width: 85%; font-size: 0.9rem; line-height: 1.5; }
-  .msg.user { text-align: right; }
-  .chat-input { display: flex; gap: 0.5rem; }
-  .chat-input input { flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.7rem 1rem; font-size: 0.95rem; outline: none; }
-  .chat-input input:focus { border-color: #1a56db; }
-  .chat-input button { background: #1a56db; color: white; border: none; border-radius: 8px; padding: 0.7rem 1.2rem; cursor: pointer; font-size: 0.95rem; }
-  .chat-input button:hover { background: #1e40af; }
-  .sql-preview { background: #1e293b; color: #94a3b8; font-family: monospace; font-size: 0.78rem; padding: 0.6rem; border-radius: 6px; margin-top: 0.4rem; white-space: pre-wrap; }
-  /* Suggestions */
-  .suggestions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
-  .suggestions button { background: #eff6ff; color: #1a56db; border: 1px solid #bfdbfe; border-radius: 20px; padding: 0.3rem 0.8rem; font-size: 0.8rem; cursor: pointer; }
-  .suggestions button:hover { background: #dbeafe; }
-  /* Table résultats */
-  .results table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  .results th { background: #1a56db; color: white; padding: 0.5rem; text-align: left; }
-  .results td { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; }
-  .results tr:hover td { background: #f0f4f8; }
-  h2 { font-size: 1rem; color: #374151; margin-bottom: 0.8rem; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
-  .badge-green { background: #dcfce7; color: #166534; }
-  .badge-orange { background: #fff7ed; color: #9a3412; }
-  .badge-red { background: #fee2e2; color: #991b1b; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1a56db;--blue-light:#eff6ff;--blue-mid:#bfdbfe;--blue-dark:#1e3a8a;
+  --green:#166534;--green-bg:#dcfce7;--amber:#92400e;--amber-bg:#fef3c7;
+  --red:#991b1b;--red-bg:#fee2e2;
+  --gray-50:#f8fafc;--gray-100:#f1f5f9;--gray-200:#e2e8f0;
+  --gray-400:#94a3b8;--gray-600:#475569;--gray-800:#1e293b;--gray-900:#0f172a;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:14px;
+  --sidebar-w:240px;--sidebar-collapsed:64px;
+}
+html,body{height:100%}
+body{font-family:'DM Sans',sans-serif;color:var(--gray-800);font-size:14px;line-height:1.6;overflow:hidden}
+
+/* BG */
+.bg-layer{position:fixed;inset:0;z-index:0;
+  background:url('https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1600&q=80') center/cover no-repeat}
+.bg-layer::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(10,15,40,.82) 0%,rgba(15,23,60,.70) 50%,rgba(10,15,40,.78) 100%);
+  backdrop-filter:blur(2px)}
+
+/* APP SHELL */
+.app{position:relative;z-index:1;display:flex;height:100vh;overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:rgba(10,15,40,.88);
+  backdrop-filter:blur(20px);border-right:1px solid rgba(255,255,255,.08);
+  display:flex;flex-direction:column;transition:width .25s ease,min-width .25s ease;overflow:hidden;z-index:50}
+.sidebar.collapsed{width:var(--sidebar-collapsed);min-width:var(--sidebar-collapsed)}
+.sidebar-logo{height:64px;display:flex;align-items:center;gap:12px;padding:0 16px;
+  border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.logo-icon{width:36px;height:36px;flex-shrink:0;background:var(--blue);border-radius:var(--radius-md);
+  display:flex;align-items:center;justify-content:center;font-size:18px}
+.logo-text h1{font-size:15px;font-weight:600;color:#fff}
+.logo-text p{font-size:11px;color:rgba(255,255,255,.4);margin-top:1px}
+.toggle-btn{margin:12px 12px 4px auto;width:28px;height:28px;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.1);border-radius:var(--radius-sm);color:rgba(255,255,255,.5);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;
+  transition:background .15s,color .15s}
+.toggle-btn:hover{background:rgba(255,255,255,.12);color:#fff}
+.sidebar-nav{flex:1;padding:8px 10px;overflow-y:auto}
+.nav-section-label{font-size:10px;font-weight:600;color:rgba(255,255,255,.25);text-transform:uppercase;
+  letter-spacing:.8px;padding:12px 8px 4px;white-space:nowrap;overflow:hidden;transition:opacity .2s}
+.sidebar.collapsed .nav-section-label{opacity:0}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 10px;border-radius:var(--radius-md);
+  cursor:pointer;color:rgba(255,255,255,.55);font-size:13.5px;font-weight:500;
+  transition:background .12s,color .12s;white-space:nowrap;border:none;background:none;
+  width:100%;text-align:left;font-family:'DM Sans',sans-serif;margin-bottom:2px}
+.nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.9)}
+.nav-item.active{background:rgba(26,86,219,.35);color:#fff;border:1px solid rgba(26,86,219,.4)}
+.nav-icon{font-size:17px;flex-shrink:0;width:22px;text-align:center}
+.nav-label{overflow:hidden;transition:opacity .2s,width .2s}
+.sidebar.collapsed .nav-label{opacity:0;width:0}
+.nav-badge{margin-left:auto;font-size:10px;font-weight:600;background:rgba(239,68,68,.25);
+  color:#f87171;padding:1px 6px;border-radius:10px;flex-shrink:0}
+.sidebar.collapsed .nav-badge{display:none}
+.sidebar-footer{padding:12px 10px;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.sidebar-user{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-md)}
+.user-avatar{width:32px;height:32px;flex-shrink:0;
+  background:linear-gradient(135deg,#1a56db,#7c3aed);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff}
+.user-info{overflow:hidden;white-space:nowrap;transition:opacity .2s}
+.user-info p{font-size:12.5px;font-weight:500;color:#fff}
+.user-info span{font-size:11px;color:rgba(255,255,255,.35)}
+.sidebar.collapsed .user-info{opacity:0;width:0}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{height:64px;flex-shrink:0;background:rgba(255,255,255,.07);backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;padding:0 1.5rem;gap:1rem}
+.topbar-title{font-size:16px;font-weight:600;color:#fff;flex:1}
+.topbar-title span{font-size:13px;font-weight:400;color:rgba(255,255,255,.45);margin-left:8px}
+.api-pill{font-size:11px;font-weight:500;padding:4px 12px;border-radius:20px;
+  background:rgba(22,163,74,.2);color:#4ade80;border:1px solid rgba(74,222,128,.25);white-space:nowrap}
+.api-pill.offline{background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(248,113,113,.25)}
+.content-area{flex:1;overflow-y:auto;padding:.75rem 1.25rem}
+
+/* GLASS CARDS */
+.card{background:rgba(255,255,255,.92);border:1px solid rgba(255,255,255,.6);
+  border-radius:var(--radius-lg);overflow:hidden;backdrop-filter:blur(10px)}
+.card-body{padding:.9rem 1.1rem}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:1rem}
+.kpi-card{background:rgba(255,255,255,.88);border:1px solid rgba(255,255,255,.5);border-radius:var(--radius-lg);
+  padding:.9rem 1.1rem;position:relative;overflow:hidden;backdrop-filter:blur(12px);
+  transition:transform .15s,box-shadow .15s}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.15)}
+.kpi-accent{position:absolute;top:0;left:0;width:3px;height:100%;border-radius:3px 0 0 3px}
+.kpi-label{font-size:11px;font-weight:500;color:var(--gray-400);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.kpi-value{font-size:26px;font-weight:600;color:var(--gray-900);line-height:1}
+.kpi-sub{font-size:11px;color:var(--gray-400);margin-top:4px}
+
+/* SECTION */
+.section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+.section-hd h2{font-size:14px;font-weight:600;color:var(--gray-800)}
+.section-hd small{font-size:12px;color:var(--gray-400)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.grid-3{display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-bottom:1rem}
+
+/* TABLES */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--gray-50);color:var(--gray-400);font-size:11px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;text-align:left;
+  border-bottom:1px solid var(--gray-200);white-space:nowrap}
+tbody td{padding:10px 14px;color:var(--gray-800);border-bottom:1px solid var(--gray-100);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(241,245,249,.7)}
+.mono{font-family:'DM Mono',monospace;font-size:12px}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.b-green{background:var(--green-bg);color:var(--green)}
+.b-amber{background:var(--amber-bg);color:var(--amber)}
+.b-red{background:var(--red-bg);color:var(--red)}
+.b-blue{background:var(--blue-light);color:var(--blue)}
+.b-gray{background:var(--gray-100);color:var(--gray-600)}
+
+/* BARS */
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bar-lbl{font-size:12px;color:var(--gray-600);min-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-bg{flex:1;height:7px;background:var(--gray-100);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.bar-val{font-size:11px;color:var(--gray-400);min-width:70px;text-align:right;font-family:'DM Mono',monospace}
+
+/* INCIDENTS */
+.inc-layout{display:grid;grid-template-columns:380px 1fr;gap:1.25rem;align-items:start}
+.inc-row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-100)}
+.inc-row:last-child{border-bottom:none}
+.inc-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.d-red{background:#ef4444}.d-amber{background:#f59e0b}.d-green{background:#22c55e}
+.inc-desc{font-size:13px;color:var(--gray-800)}
+.inc-meta{font-size:11px;color:var(--gray-400);margin-top:2px}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
+.filter-btn{padding:5px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;
+  border:1px solid var(--gray-200);background:#fff;color:var(--gray-600);
+  font-family:'DM Sans',sans-serif;transition:all .12s}
+.filter-btn:hover,.filter-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+/* FORM */
+.form-card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-lg);overflow:hidden}
+.form-card-hd{padding:.9rem 1.2rem;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:8px}
+.form-card-hd h2{font-size:14px;font-weight:600}
+.form-body{padding:1.2rem;display:flex;flex-direction:column;gap:1rem}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-label{font-size:12px;font-weight:500;color:var(--gray-600)}
+.form-label span{color:var(--red);margin-left:2px}
+.form-control{border:1px solid var(--gray-200);border-radius:var(--radius-md);padding:.6rem .9rem;
+  font-size:13.5px;font-family:'DM Sans',sans-serif;color:var(--gray-800);background:var(--gray-50);
+  outline:none;transition:border-color .15s,background .15s;width:100%}
+.form-control:focus{border-color:var(--blue);background:#fff}
+textarea.form-control{resize:vertical;min-height:80px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gravite-btns{display:flex;gap:8px}
+.grav-btn{flex:1;padding:.5rem;border-radius:var(--radius-md);font-size:12.5px;font-weight:500;
+  cursor:pointer;border:1px solid var(--gray-200);background:#fff;font-family:'DM Sans',sans-serif;
+  transition:all .12s;text-align:center}
+.grav-btn.sel-faible{background:var(--green-bg);color:var(--green);border-color:#86efac}
+.grav-btn.sel-moyen{background:var(--amber-bg);color:var(--amber);border-color:#fcd34d}
+.grav-btn.sel-grave{background:var(--red-bg);color:var(--red);border-color:#fca5a5}
+.submit-btn{background:var(--blue);color:#fff;border:none;border-radius:var(--radius-md);padding:.75rem;
+  font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;
+  transition:background .15s;width:100%;margin-top:.25rem}
+.submit-btn:hover{background:var(--blue-dark)}
+.submit-btn:disabled{background:var(--gray-200);color:var(--gray-400);cursor:not-allowed}
+
+/* CRUD BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--radius-md);
+  font-size:12.5px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;border:none;
+  transition:all .12s;white-space:nowrap}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue-dark)}
+.btn-edit{background:var(--amber-bg);color:var(--amber);border:1px solid #fcd34d;font-size:11.5px;padding:4px 10px}
+.btn-edit:hover{background:#fde68a}
+.btn-del{background:var(--red-bg);color:var(--red);border:1px solid #fca5a5;font-size:11.5px;padding:4px 10px}
+.btn-del:hover{background:#fecaca}
+.btn-success{background:var(--green-bg);color:var(--green);border:1px solid #86efac;font-size:11.5px;padding:4px 10px}
+.btn-success:hover{background:#bbf7d0}
+.btn-cancel{background:var(--gray-100);color:var(--gray-600);border:1px solid var(--gray-200)}
+.btn-cancel:hover{background:var(--gray-200)}
+.table-actions{display:flex;gap:4px;flex-wrap:nowrap}
+
+/* MODALS */
+.modal-overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.55);
+  backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:var(--radius-lg);width:100%;max-width:520px;
+  max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);
+  animation:modalIn .2s ease}
+@keyframes modalIn{from{transform:translateY(-16px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-hd{padding:1.1rem 1.3rem;border-bottom:1px solid var(--gray-100);
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;background:#fff;z-index:1}
+.modal-hd h3{font-size:15px;font-weight:600}
+.modal-close{width:28px;height:28px;border-radius:var(--radius-sm);background:var(--gray-100);
+  border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;
+  color:var(--gray-600);transition:background .12s}
+.modal-close:hover{background:var(--red-bg);color:var(--red)}
+.modal-body{padding:1.2rem;display:flex;flex-direction:column;gap:1rem}
+.modal-footer{padding:.9rem 1.3rem;border-top:1px solid var(--gray-100);
+  display:flex;gap:.6rem;justify-content:flex-end;position:sticky;bottom:0;background:#fff}
+.confirm-modal{max-width:380px}
+.confirm-modal .modal-body{text-align:center;padding:1.5rem}
+.confirm-icon{font-size:36px;margin-bottom:.5rem}
+.confirm-msg{font-size:14px;color:var(--gray-600);line-height:1.6}
+.confirm-msg strong{color:var(--gray-900)}
+
+/* CHAT */
+.chat-layout{display:grid;grid-template-columns:260px 1fr;gap:1.25rem;height:calc(100vh - 140px);min-height:500px}
+.chat-sidebar{background:rgba(255,255,255,.92);border:1px solid rgba(255,255,255,.6);
+  border-radius:var(--radius-lg);display:flex;flex-direction:column;overflow:hidden;backdrop-filter:blur(10px)}
+.sidebar-tabs{display:flex;border-bottom:1px solid var(--gray-100)}
+.sidebar-tab{flex:1;padding:.65rem .5rem;font-size:12px;font-weight:500;color:var(--gray-400);
+  cursor:pointer;background:none;border:none;border-bottom:2px solid transparent;
+  font-family:'DM Sans',sans-serif;transition:color .12s,border-color .12s}
+.sidebar-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.sidebar-panel{display:none;flex:1;overflow-y:auto}
+.sidebar-panel.active{display:flex;flex-direction:column}
+.suggestions-list{padding:.75rem;flex:1;overflow-y:auto}
+.sugg-btn{width:100%;text-align:left;padding:.65rem .8rem;background:var(--gray-50);
+  border:1px solid var(--gray-200);border-radius:var(--radius-md);font-size:12.5px;
+  color:var(--gray-700);cursor:pointer;margin-bottom:.4rem;transition:background .1s,border-color .1s;
+  font-family:'DM Sans',sans-serif;line-height:1.4}
+.sugg-btn:hover{background:var(--blue-light);border-color:var(--blue-mid);color:var(--blue)}
+.sugg-category{font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase;
+  letter-spacing:.5px;padding:.5rem .2rem .3rem}
+.hist-empty{padding:1.5rem 1rem;text-align:center;color:var(--gray-400);font-size:12px}
+.hist-session{padding:.6rem .8rem;cursor:pointer;border-bottom:1px solid var(--gray-100);
+  transition:background .1s;display:flex;align-items:flex-start;gap:8px}
+.hist-session:hover{background:var(--gray-50)}
+.hist-session.active-sess{background:var(--blue-light)}
+.hist-icon{font-size:14px;margin-top:1px;flex-shrink:0}
+.hist-info{flex:1;min-width:0}
+.hist-title{font-size:12.5px;color:var(--gray-800);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-meta{font-size:11px;color:var(--gray-400);margin-top:2px}
+.hist-del{font-size:13px;color:var(--gray-400);background:none;border:none;cursor:pointer;
+  padding:2px 4px;border-radius:4px;opacity:0;transition:opacity .1s;flex-shrink:0}
+.hist-session:hover .hist-del{opacity:1}
+.hist-del:hover{color:var(--red);background:var(--red-bg)}
+.new-chat-btn{width:calc(100% - 1.5rem);margin:.75rem;padding:.55rem;font-size:12.5px;font-weight:500;
+  background:var(--blue-light);color:var(--blue);border:1px solid var(--blue-mid);
+  border-radius:var(--radius-md);cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .1s}
+.new-chat-btn:hover{background:var(--blue-mid)}
+.chat-main{background:rgba(255,255,255,.92);border:1px solid rgba(255,255,255,.6);
+  border-radius:var(--radius-lg);display:flex;flex-direction:column;overflow:hidden;backdrop-filter:blur(10px)}
+.chat-hd{padding:.9rem 1.2rem;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:8px}
+.chat-hd .bot-avatar{width:32px;height:32px;background:var(--blue);border-radius:var(--radius-sm);
+  display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.chat-hd-info h3{font-size:14px;font-weight:600}
+.chat-hd-info p{font-size:12px;color:var(--gray-400)}
+.chat-messages{flex:1;overflow-y:auto;padding:1.2rem;display:flex;flex-direction:column;gap:.75rem;scroll-behavior:smooth}
+.msg{display:flex;gap:8px;max-width:85%}
+.msg.user{margin-left:auto;flex-direction:row-reverse}
+.msg-avatar{width:28px;height:28px;border-radius:var(--radius-sm);display:flex;align-items:center;
+  justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px}
+.msg.bot .msg-avatar{background:var(--blue)}
+.msg.user .msg-avatar{background:var(--gray-800)}
+.bubble{padding:.65rem 1rem;border-radius:var(--radius-lg);font-size:13.5px;line-height:1.6;max-width:100%}
+.msg.bot .bubble{background:var(--gray-50);border:1px solid var(--gray-200);border-top-left-radius:4px}
+.msg.user .bubble{background:var(--blue);color:#fff;border-top-right-radius:4px}
+.sql-block{margin-top:.6rem;background:var(--gray-900);color:#94a3b8;font-family:'DM Mono',monospace;
+  font-size:11.5px;padding:.7rem .9rem;border-radius:var(--radius-sm);white-space:pre-wrap;word-break:break-all;line-height:1.5}
+.sql-label{font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem}
+.results-table-wrap{margin-top:.8rem;border:1px solid var(--gray-200);border-radius:var(--radius-md);
+  overflow:hidden;max-height:260px;overflow-y:auto}
+.results-table-wrap table{font-size:12px}
+.results-table-wrap thead th{font-size:10px;padding:7px 10px}
+.results-table-wrap tbody td{padding:7px 10px}
+.typing-dot{display:inline-block;width:6px;height:6px;background:var(--gray-400);border-radius:50%;animation:blink 1.2s infinite}
+.typing-dot:nth-child(2){animation-delay:.2s}
+.typing-dot:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:0}40%{opacity:1}}
+.chat-footer{padding:.9rem 1.2rem;border-top:1px solid var(--gray-100)}
+.chat-form{display:flex;gap:.5rem}
+.chat-input{flex:1;border:1px solid var(--gray-200);border-radius:var(--radius-md);padding:.65rem 1rem;
+  font-size:13.5px;font-family:'DM Sans',sans-serif;color:var(--gray-800);background:var(--gray-50);
+  outline:none;transition:border-color .15s,background .15s}
+.chat-input:focus{border-color:var(--blue);background:#fff}
+.chat-input::placeholder{color:var(--gray-400)}
+.send-btn{background:var(--blue);color:#fff;border:none;border-radius:var(--radius-md);
+  padding:.65rem 1.1rem;font-size:13.5px;font-weight:500;cursor:pointer;white-space:nowrap;
+  font-family:'DM Sans',sans-serif;transition:background .15s}
+.send-btn:hover{background:var(--blue-dark)}
+.send-btn:disabled{background:var(--gray-200);color:var(--gray-400);cursor:not-allowed}
+.clear-btn{font-size:12px;color:var(--gray-400);background:none;border:none;cursor:pointer;padding:.4rem}
+.clear-btn:hover{color:var(--red)}
+
+/* TOAST */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;padding:.75rem 1.2rem;
+  border-radius:var(--radius-md);font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:8px;
+  box-shadow:0 4px 16px rgba(0,0,0,.15);animation:slideIn .25s ease}
+.toast-success{background:#166534;color:#fff}
+.toast-error{background:#991b1b;color:#fff}
+@keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* MISC */
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.empty{text-align:center;padding:2rem;color:var(--gray-400);font-size:13px}
+.skel{background:var(--gray-100);border-radius:4px;animation:shimmer 1.4s infinite}
+@keyframes shimmer{0%,100%{opacity:.7}50%{opacity:.4}}
+
+@media(max-width:768px){
+  .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:200;transform:translateX(-100%);transition:transform .25s ease}
+  .sidebar.mobile-open{transform:translateX(0)}
+  .sidebar.collapsed{width:var(--sidebar-w);min-width:var(--sidebar-w)}
+  .sidebar.collapsed .nav-label{opacity:1;width:auto}
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  .chat-layout{grid-template-columns:1fr;height:auto}
+  .chat-sidebar{display:none}
+  .inc-layout{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+}
 </style>
 </head>
 <body>
-<header>
-  <span>🚌</span>
-  <div>
-    <h1>TranspoBot</h1>
-    <small>Assistant IA — Gestion de Transport</small>
-  </div>
-</header>
+<div class="bg-layer"></div>
+<div class="app">
 
-<div class="container">
-  <!-- Colonne gauche -->
-  <div>
-    <div class="card" style="margin-bottom:1rem">
-      <h2>📊 Tableau de bord</h2>
-      <div class="stats-grid" id="stats">
-        <div class="stat"><div class="val">—</div><div class="lbl">Trajets terminés</div></div>
-        <div class="stat"><div class="val">—</div><div class="lbl">En cours</div></div>
-        <div class="stat"><div class="val">—</div><div class="lbl">Véhicules actifs</div></div>
-        <div class="stat"><div class="val">—</div><div class="lbl">Incidents ouverts</div></div>
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🚌</div>
+      <div class="logo-text"><h1>TranspoBot</h1><p>Transport Urbain IA</p></div>
+    </div>
+    <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Principal</div>
+      <button class="nav-item active" id="nav-dashboard" onclick="showTab('dashboard',this)"><span class="nav-icon">📊</span><span class="nav-label">Tableau de bord</span></button>
+      <button class="nav-item" id="nav-chat" onclick="showTab('chat',this)"><span class="nav-icon">🤖</span><span class="nav-label">Assistant IA</span></button>
+      <div class="nav-section-label">Gestion</div>
+      <button class="nav-item" id="nav-vehicules" onclick="showTab('vehicules',this)"><span class="nav-icon">🚍</span><span class="nav-label">Véhicules</span></button>
+      <button class="nav-item" id="nav-chauffeurs" onclick="showTab('chauffeurs',this)"><span class="nav-icon">👤</span><span class="nav-label">Chauffeurs</span></button>
+      <button class="nav-item" id="nav-trajets" onclick="showTab('trajets',this)"><span class="nav-icon">🗺️</span><span class="nav-label">Trajets</span></button>
+      <button class="nav-item" id="nav-incidents" onclick="showTab('incidents',this)"><span class="nav-icon">⚠️</span><span class="nav-label">Incidents</span><span class="nav-badge" id="inc-nav-badge">1</span></button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar">NM</div>
+        <div class="user-info"><p>Ndeye Maty</p><span>GLSi L3 — ESP/UCAD</span></div>
       </div>
     </div>
+  </aside>
 
-    <div class="card">
-      <h2>🕒 Trajets récents</h2>
-      <div class="results" id="trajets-table"><p style="color:#94a3b8;font-size:0.85rem">Chargement...</p></div>
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Tableau de bord <span>Vue d'ensemble</span></div>
+      <span class="api-pill" id="api-status">Connexion...</span>
     </div>
-  </div>
+    <div class="content-area">
 
-  <!-- Colonne droite : Chat -->
-  <div class="card">
-    <h2>💬 Assistant TranspoBot</h2>
-    <div class="suggestions">
-      <button onclick="ask('Combien de trajets ont été effectués cette semaine ?')">Trajets cette semaine</button>
-      <button onclick="ask('Quel chauffeur a le plus de trajets ?')">Meilleur chauffeur</button>
-      <button onclick="ask('Quels véhicules sont en maintenance ?')">Véhicules en maintenance</button>
-      <button onclick="ask('Liste les incidents graves non résolus')">Incidents graves</button>
-      <button onclick="ask('Quelle est la recette totale du mois de mars 2026 ?')">Recette mars 2026</button>
-    </div>
+      <!-- DASHBOARD -->
+      <div class="tab-panel active" id="tab-dashboard">
+        <div class="kpi-grid">
+          <div class="kpi-card"><div class="kpi-accent" style="background:#1a56db"></div><div class="kpi-label">Trajets terminés</div><div class="kpi-value" id="k-total">—</div><div class="kpi-sub">total cumulé</div></div>
+          <div class="kpi-card"><div class="kpi-accent" style="background:#f59e0b"></div><div class="kpi-label">En cours</div><div class="kpi-value" id="k-cours">—</div><div class="kpi-sub">actifs maintenant</div></div>
+          <div class="kpi-card"><div class="kpi-accent" style="background:#22c55e"></div><div class="kpi-label">Véhicules actifs</div><div class="kpi-value" id="k-veh">—</div><div class="kpi-sub">flotte opérationnelle</div></div>
+          <div class="kpi-card"><div class="kpi-accent" style="background:#ef4444"></div><div class="kpi-label">Incidents ouverts</div><div class="kpi-value" id="k-inc">—</div><div class="kpi-sub">non résolus</div></div>
+          <div class="kpi-card"><div class="kpi-accent" style="background:#14b8a6"></div><div class="kpi-label">Recette totale</div><div class="kpi-value" id="k-rec">—</div><div class="kpi-sub">FCFA cumulés</div></div>
+          <div class="kpi-card"><div class="kpi-accent" style="background:#8b5cf6"></div><div class="kpi-label">Chauffeurs dispos</div><div class="kpi-value" id="k-chauf">—</div><div class="kpi-sub">disponibles</div></div>
+        </div>
+        <div class="grid-3">
+          <div class="card"><div class="card-body"><div class="section-hd"><h2>Recettes par ligne</h2></div><div id="bars-recettes"></div></div></div>
+          <div class="card"><div class="card-body"><div class="section-hd"><h2>Incidents récents</h2></div><div id="incidents-list"></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-body"><div class="section-hd"><h2>Derniers trajets</h2><small style="cursor:pointer;color:var(--blue)" onclick="loadDashboard()">Actualiser</small></div></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Ligne</th><th>Chauffeur</th><th>Véhicule</th><th>Date départ</th><th>Passagers</th><th>Recette</th><th>Statut</th></tr></thead>
+            <tbody id="db-trajets"><tr><td colspan="7" class="empty">Chargement...</td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
 
-    <div class="chat-box" id="chat-box">
-      <div class="msg bot">
-        <div class="bubble">👋 Bonjour ! Je suis TranspoBot, votre assistant intelligent.<br>Posez-moi n'importe quelle question sur votre flotte, vos trajets ou vos chauffeurs !</div>
+      <!-- CHAT -->
+      <div class="tab-panel" id="tab-chat">
+        <div class="chat-layout">
+          <div class="chat-sidebar">
+            <div class="sidebar-tabs">
+              <button class="sidebar-tab active" onclick="switchSidebarTab('historique',this)">Historique</button>
+              <button class="sidebar-tab" onclick="switchSidebarTab('suggestions',this)">Suggestions</button>
+            </div>
+            <div class="sidebar-panel active" id="panel-historique">
+              <button class="new-chat-btn" onclick="newSession()">+ Nouvelle conversation</button>
+              <div id="hist-list"><div class="hist-empty">Aucune conversation</div></div>
+            </div>
+            <div class="sidebar-panel" id="panel-suggestions">
+              <div class="suggestions-list">
+                <div class="sugg-category">Trajets</div>
+                <button class="sugg-btn" onclick="askQ(this.textContent)">Combien de trajets cette semaine ?</button>
+                <button class="sugg-btn" onclick="askQ(this.textContent)">Quels trajets sont en cours ?</button>
+                <button class="sugg-btn" onclick="askQ(this.textContent)">Trajets du mois de mars 2026 ?</button>
+                <div class="sugg-category">Chauffeurs</div>
+                <button class="sugg-btn" onclick="askQ(this.textContent)">Quel chauffeur a le plus de trajets ?</button>
+                <button class="sugg-btn" onclick="askQ(this.textContent)">Quel chauffeur a le plus d'incidents ?</button>
+                <button class="sugg-btn" onclick="askQ(this.textContent)">Liste les chauffeurs disponibles</button>
+                <div class="sugg-category">Véhicules</div>
+                <button class="sugg-btn" onclick="askQ(this.textContent)">Quels véhicules sont en maintenance ?</button>
+                <button class="sugg-btn" onclick="askQ(this.textContent)">Véhicule avec le plus de kilomètres ?</button>
+                <div class="sugg-category">Finances</div>
+                <button class="sugg-btn" onclick="askQ(this.textContent)">Recette totale mars 2026 ?</button>
+                <button class="sugg-btn" onclick="askQ(this.textContent)">Quelle ligne génère le plus ?</button>
+                <div class="sugg-category">Incidents</div>
+                <button class="sugg-btn" onclick="askQ(this.textContent)">Incidents graves non résolus</button>
+                <button class="sugg-btn" onclick="askQ(this.textContent)">Combien d'incidents ce mois ?</button>
+              </div>
+            </div>
+          </div>
+          <div class="chat-main">
+            <div class="chat-hd">
+              <div class="bot-avatar">🤖</div>
+              <div class="chat-hd-info"><h3>TranspoBot IA</h3><p>Questions en français ou anglais</p></div>
+              <button class="clear-btn" onclick="clearChat()" title="Effacer">🗑</button>
+            </div>
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-footer">
+              <div class="chat-form">
+                <input type="text" class="chat-input" id="chat-input" placeholder="Ex: Combien de trajets cette semaine ?" onkeypress="if(event.key==='Enter')sendMsg()">
+                <button class="send-btn" id="send-btn" onclick="sendMsg()">Envoyer ↗</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VEHICULES -->
+      <div class="tab-panel" id="tab-vehicules">
+        <div class="filter-bar">
+          <button class="filter-btn active" onclick="filterVeh('all',this)">Tous</button>
+          <button class="filter-btn" onclick="filterVeh('actif',this)">Actifs</button>
+          <button class="filter-btn" onclick="filterVeh('maintenance',this)">Maintenance</button>
+          <button class="filter-btn" onclick="filterVeh('hors_service',this)">Hors service</button>
+          <button class="btn btn-primary" style="margin-left:auto" onclick="openModal('veh',null)">+ Ajouter</button>
+        </div>
+        <div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Immatriculation</th><th>Type</th><th>Capacité</th><th>Kilométrage</th><th>Acquisition</th><th>Statut</th><th>Actions</th></tr></thead>
+          <tbody id="veh-tbody"><tr><td colspan="7" class="empty">Chargement...</td></tr></tbody>
+        </table></div></div>
+      </div>
+
+      <!-- CHAUFFEURS -->
+      <div class="tab-panel" id="tab-chauffeurs">
+        <div class="filter-bar">
+          <button class="filter-btn active" onclick="filterChauf('all',this)">Tous</button>
+          <button class="filter-btn" onclick="filterChauf('true',this)">Disponibles</button>
+          <button class="filter-btn" onclick="filterChauf('false',this)">Non disponibles</button>
+          <button class="btn btn-primary" style="margin-left:auto" onclick="openModal('chauf',null)">+ Ajouter</button>
+        </div>
+        <div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Nom</th><th>Prénom</th><th>Téléphone</th><th>N° Permis</th><th>Catégorie</th><th>Véhicule</th><th>Embauche</th><th>Dispo</th><th>Actions</th></tr></thead>
+          <tbody id="chauf-tbody"><tr><td colspan="9" class="empty">Chargement...</td></tr></tbody>
+        </table></div></div>
+      </div>
+
+      <!-- TRAJETS -->
+      <div class="tab-panel" id="tab-trajets">
+        <div class="filter-bar">
+          <button class="filter-btn active" onclick="filterTraj('all',this)">Tous</button>
+          <button class="filter-btn" onclick="filterTraj('termine',this)">Terminés</button>
+          <button class="filter-btn" onclick="filterTraj('en_cours',this)">En cours</button>
+          <button class="filter-btn" onclick="filterTraj('planifie',this)">Planifiés</button>
+          <button class="filter-btn" onclick="filterTraj('annule',this)">Annulés</button>
+          <button class="btn btn-primary" style="margin-left:auto" onclick="openModal('traj',null)">+ Ajouter</button>
+        </div>
+        <div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>#</th><th>Ligne</th><th>Chauffeur</th><th>Véhicule</th><th>Départ</th><th>Arrivée</th><th>Passagers</th><th>Recette</th><th>Statut</th><th>Actions</th></tr></thead>
+          <tbody id="traj-tbody"><tr><td colspan="10" class="empty">Chargement...</td></tr></tbody>
+        </table></div></div>
+      </div>
+
+      <!-- INCIDENTS -->
+      <div class="tab-panel" id="tab-incidents">
+        <div class="inc-layout">
+          <div class="form-card">
+            <div class="form-card-hd"><span style="font-size:18px">⚠️</span><h2>Enregistrer un incident</h2></div>
+            <div class="form-body">
+              <div class="form-group">
+                <label class="form-label">Trajet concerné <span>*</span></label>
+                <select class="form-control" id="inc-trajet"><option value="">-- Sélectionner --</option></select>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Type <span>*</span></label>
+                  <select class="form-control" id="inc-type">
+                    <option value="">-- Choisir --</option>
+                    <option value="panne">🔧 Panne</option>
+                    <option value="accident">💥 Accident</option>
+                    <option value="retard">⏱ Retard</option>
+                    <option value="autre">📋 Autre</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Date et heure <span>*</span></label>
+                  <input type="datetime-local" class="form-control" id="inc-date">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Gravité <span>*</span></label>
+                <div class="gravite-btns">
+                  <button class="grav-btn" id="grav-faible" onclick="selectGravite('faible')">🟢 Faible</button>
+                  <button class="grav-btn" id="grav-moyen" onclick="selectGravite('moyen')">🟡 Moyen</button>
+                  <button class="grav-btn" id="grav-grave" onclick="selectGravite('grave')">🔴 Grave</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Description <span>*</span></label>
+                <textarea class="form-control" id="inc-desc" placeholder="Décrivez l'incident..."></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                  <input type="checkbox" id="inc-resolu" style="width:16px;height:16px;accent-color:var(--blue)">
+                  Incident déjà résolu
+                </label>
+              </div>
+              <button class="submit-btn" id="inc-submit" onclick="submitIncident()">Enregistrer l'incident</button>
+              <div id="inc-form-msg" style="display:none;font-size:13px;text-align:center;padding:.5rem;border-radius:var(--radius-md)"></div>
+            </div>
+          </div>
+          <div>
+            <div class="section-hd" style="margin-bottom:1rem">
+              <h2 style="font-size:14px;font-weight:600">Incidents enregistrés</h2>
+              <div style="display:flex;gap:.5rem;align-items:center">
+                <select class="form-control" id="inc-filter-grav" onchange="filterIncidents()" style="width:auto;padding:.35rem .7rem;font-size:12px">
+                  <option value="">Toutes gravités</option>
+                  <option value="faible">Faible</option><option value="moyen">Moyen</option><option value="grave">Grave</option>
+                </select>
+                <select class="form-control" id="inc-filter-resolu" onchange="filterIncidents()" style="width:auto;padding:.35rem .7rem;font-size:12px">
+                  <option value="">Tous statuts</option>
+                  <option value="false">Non résolus</option><option value="true">Résolus</option>
+                </select>
+              </div>
+            </div>
+            <div class="card"><div class="table-wrap"><table>
+              <thead><tr><th>#</th><th>Type</th><th>Description</th><th>Trajet / Ligne</th><th>Date</th><th>Gravité</th><th>Résolu</th><th>Actions</th></tr></thead>
+              <tbody id="inc-tbody"><tr><td colspan="8" class="empty">Chargement...</td></tr></tbody>
+            </table></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content-area -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- MODALES CRUD -->
+
+<!-- Véhicule -->
+<div class="modal-overlay" id="modal-veh">
+  <div class="modal">
+    <div class="modal-hd"><h3 id="modal-veh-title">Ajouter un véhicule</h3><button class="modal-close" onclick="closeModal('veh')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="veh-id">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Immatriculation <span>*</span></label><input type="text" class="form-control" id="veh-immat" placeholder="DK-0000-XX"></div>
+        <div class="form-group"><label class="form-label">Type <span>*</span></label><select class="form-control" id="veh-type"><option value="bus">Bus</option><option value="minibus">Minibus</option><option value="taxi">Taxi</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Capacité <span>*</span></label><input type="number" class="form-control" id="veh-capacite" placeholder="60" min="1"></div>
+        <div class="form-group"><label class="form-label">Kilométrage</label><input type="number" class="form-control" id="veh-km" placeholder="0" min="0"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Date d'acquisition</label><input type="date" class="form-control" id="veh-date"></div>
+        <div class="form-group"><label class="form-label">Statut <span>*</span></label><select class="form-control" id="veh-statut"><option value="actif">Actif</option><option value="maintenance">Maintenance</option><option value="hors_service">Hors service</option></select></div>
       </div>
     </div>
+    <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('veh')">Annuler</button><button class="btn btn-primary" onclick="saveVehicule()">Enregistrer</button></div>
+  </div>
+</div>
 
-    <div class="chat-input">
-      <input type="text" id="user-input" placeholder="Ex: Combien de trajets ce mois-ci ?" onkeypress="if(event.key==='Enter') sendMessage()">
-      <button onclick="sendMessage()">Envoyer ➤</button>
+<!-- Chauffeur -->
+<div class="modal-overlay" id="modal-chauf">
+  <div class="modal">
+    <div class="modal-hd"><h3 id="modal-chauf-title">Ajouter un chauffeur</h3><button class="modal-close" onclick="closeModal('chauf')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="chauf-id">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Nom <span>*</span></label><input type="text" class="form-control" id="chauf-nom" placeholder="DIOP"></div>
+        <div class="form-group"><label class="form-label">Prénom <span>*</span></label><input type="text" class="form-control" id="chauf-prenom" placeholder="Mamadou"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Téléphone</label><input type="tel" class="form-control" id="chauf-tel" placeholder="+221771234567"></div>
+        <div class="form-group"><label class="form-label">N° Permis <span>*</span></label><input type="text" class="form-control" id="chauf-permis" placeholder="P-2024-001"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Catégorie</label><select class="form-control" id="chauf-cat"><option value="D">D (bus/car)</option><option value="B">B (voiture)</option><option value="C">C (poids lourd)</option></select></div>
+        <div class="form-group"><label class="form-label">Date embauche</label><input type="date" class="form-control" id="chauf-embauche"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Véhicule assigné</label><select class="form-control" id="chauf-vehicule"><option value="">-- Aucun --</option></select></div>
+        <div class="form-group"><label class="form-label">Disponibilité</label><select class="form-control" id="chauf-dispo"><option value="1">Disponible</option><option value="0">Non disponible</option></select></div>
+      </div>
     </div>
+    <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('chauf')">Annuler</button><button class="btn btn-primary" onclick="saveChauffeur()">Enregistrer</button></div>
+  </div>
+</div>
 
-    <div id="results-section" style="margin-top:1rem; display:none">
-      <h2>📋 Résultats</h2>
-      <div class="results" id="results-table"></div>
+<!-- Trajet -->
+<div class="modal-overlay" id="modal-traj">
+  <div class="modal">
+    <div class="modal-hd"><h3 id="modal-traj-title">Ajouter un trajet</h3><button class="modal-close" onclick="closeModal('traj')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="traj-id">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Ligne <span>*</span></label><select class="form-control" id="traj-ligne"><option value="1">L1 — Dakar-Thiès</option><option value="2">L2 — Dakar-Mbour</option><option value="3">L3 — Centre-Banlieue</option><option value="4">L4 — Aéroport</option></select></div>
+        <div class="form-group"><label class="form-label">Statut <span>*</span></label><select class="form-control" id="traj-statut"><option value="planifie">Planifié</option><option value="en_cours">En cours</option><option value="termine">Terminé</option><option value="annule">Annulé</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Chauffeur <span>*</span></label><select class="form-control" id="traj-chauffeur"><option value="">-- Sélectionner --</option></select></div>
+        <div class="form-group"><label class="form-label">Véhicule <span>*</span></label><select class="form-control" id="traj-vehicule"><option value="">-- Sélectionner --</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Départ <span>*</span></label><input type="datetime-local" class="form-control" id="traj-depart"></div>
+        <div class="form-group"><label class="form-label">Arrivée</label><input type="datetime-local" class="form-control" id="traj-arrivee"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Passagers</label><input type="number" class="form-control" id="traj-pass" placeholder="0" min="0"></div>
+        <div class="form-group"><label class="form-label">Recette (FCFA)</label><input type="number" class="form-control" id="traj-recette" placeholder="0" min="0"></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('traj')">Annuler</button><button class="btn btn-primary" onclick="saveTrajet()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Incident edit -->
+<div class="modal-overlay" id="modal-inc-edit">
+  <div class="modal">
+    <div class="modal-hd"><h3>Modifier l'incident</h3><button class="modal-close" onclick="closeModal('inc-edit')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="inc-edit-id">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Type <span>*</span></label><select class="form-control" id="inc-edit-type"><option value="panne">🔧 Panne</option><option value="accident">💥 Accident</option><option value="retard">⏱ Retard</option><option value="autre">📋 Autre</option></select></div>
+        <div class="form-group"><label class="form-label">Gravité <span>*</span></label><select class="form-control" id="inc-edit-gravite"><option value="faible">🟢 Faible</option><option value="moyen">🟡 Moyen</option><option value="grave">🔴 Grave</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Description <span>*</span></label><textarea class="form-control" id="inc-edit-desc" rows="3"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Date incident</label><input type="datetime-local" class="form-control" id="inc-edit-date"></div>
+        <div class="form-group"><label class="form-label">Statut</label><select class="form-control" id="inc-edit-resolu"><option value="0">✗ Non résolu</option><option value="1">✓ Résolu</option></select></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-cancel" onclick="closeModal('inc-edit')">Annuler</button><button class="btn btn-primary" onclick="saveIncidentEdit()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Confirmation suppression -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal confirm-modal">
+    <div class="modal-body">
+      <div class="confirm-icon">🗑️</div>
+      <p class="confirm-msg" id="confirm-msg">Confirmer la suppression ?</p>
+    </div>
+    <div class="modal-footer" style="justify-content:center">
+      <button class="btn btn-cancel" onclick="closeModal('confirm')">Annuler</button>
+      <button class="btn btn-del" id="confirm-ok-btn">Supprimer</button>
     </div>
   </div>
 </div>
 
 <script>
-const API = '';  // Remplacer par l'URL de votre backend
+const API = ''; // ← URL backend ex: 'https://mon-app.railway.app'
 
-async function loadStats() {
-  try {
-    const r = await fetch(`${API}/api/stats`);
-    const d = await r.json();
-    const grid = document.getElementById('stats');
-    const vals = [d.total_trajets, d.trajets_en_cours, d.vehicules_actifs, d.incidents_ouverts];
-    grid.querySelectorAll('.val').forEach((el, i) => el.textContent = vals[i] ?? '—');
-  } catch(e) { console.warn('Stats non disponibles'); }
+// ── Données démo ───────────────────────────────────────────────
+const DEMO = {
+  stats:{total_trajets:6,trajets_en_cours:1,vehicules_actifs:4,incidents_ouverts:1,recette_totale:557000,chauffeurs_dispos:3},
+  vehicules:[
+    {id:1,immatriculation:'DK-1234-AB',type:'bus',capacite:60,statut:'actif',kilometrage:45000,date_acquisition:'2021-03-15'},
+    {id:2,immatriculation:'DK-5678-CD',type:'minibus',capacite:25,statut:'actif',kilometrage:32000,date_acquisition:'2022-06-01'},
+    {id:3,immatriculation:'DK-9012-EF',type:'bus',capacite:60,statut:'maintenance',kilometrage:78000,date_acquisition:'2019-11-20'},
+    {id:4,immatriculation:'DK-3456-GH',type:'taxi',capacite:5,statut:'actif',kilometrage:120000,date_acquisition:'2020-01-10'},
+    {id:5,immatriculation:'DK-7890-IJ',type:'minibus',capacite:25,statut:'actif',kilometrage:15000,date_acquisition:'2023-09-05'},
+  ],
+  chauffeurs:[
+    {id:1,nom:'DIOP',prenom:'Mamadou',telephone:'+221771234567',numero_permis:'P-2019-001',categorie_permis:'D',disponibilite:true,vehicule_id:1,immatriculation:'DK-1234-AB',date_embauche:'2019-04-01'},
+    {id:2,nom:'FALL',prenom:'Ibrahima',telephone:'+221772345678',numero_permis:'P-2020-002',categorie_permis:'D',disponibilite:true,vehicule_id:2,immatriculation:'DK-5678-CD',date_embauche:'2020-07-15'},
+    {id:3,nom:'NDIAYE',prenom:'Fatou',telephone:'+221773456789',numero_permis:'P-2021-003',categorie_permis:'B',disponibilite:true,vehicule_id:4,immatriculation:'DK-3456-GH',date_embauche:'2021-02-01'},
+    {id:4,nom:'SECK',prenom:'Ousmane',telephone:'+221774567890',numero_permis:'P-2022-004',categorie_permis:'D',disponibilite:true,vehicule_id:5,immatriculation:'DK-7890-IJ',date_embauche:'2022-10-20'},
+    {id:5,nom:'BA',prenom:'Aminata',telephone:'+221775678901',numero_permis:'P-2023-005',categorie_permis:'D',disponibilite:false,vehicule_id:null,immatriculation:null,date_embauche:'2023-01-10'},
+  ],
+  trajets:[
+    {id:1,ligne_id:1,ligne:'Ligne Dakar-Thiès',chauffeur_id:1,chauffeur:'Mamadou DIOP',vehicule_id:1,immatriculation:'DK-1234-AB',date_heure_depart:'2026-03-01T06:00:00',date_heure_arrivee:'2026-03-01T07:30:00',statut:'termine',nb_passagers:55,recette:137500},
+    {id:2,ligne_id:1,ligne:'Ligne Dakar-Thiès',chauffeur_id:2,chauffeur:'Ibrahima FALL',vehicule_id:2,immatriculation:'DK-5678-CD',date_heure_depart:'2026-03-01T08:00:00',date_heure_arrivee:'2026-03-01T09:30:00',statut:'termine',nb_passagers:20,recette:50000},
+    {id:3,ligne_id:2,ligne:'Ligne Dakar-Mbour',chauffeur_id:3,chauffeur:'Fatou NDIAYE',vehicule_id:4,immatriculation:'DK-3456-GH',date_heure_depart:'2026-03-02T07:00:00',date_heure_arrivee:'2026-03-02T09:00:00',statut:'termine',nb_passagers:4,recette:12000},
+    {id:4,ligne_id:3,ligne:'Ligne Centre-Banlieue',chauffeur_id:4,chauffeur:'Ousmane SECK',vehicule_id:5,immatriculation:'DK-7890-IJ',date_heure_depart:'2026-03-05T07:30:00',date_heure_arrivee:'2026-03-05T08:15:00',statut:'termine',nb_passagers:22,recette:11000},
+    {id:5,ligne_id:1,ligne:'Ligne Dakar-Thiès',chauffeur_id:1,chauffeur:'Mamadou DIOP',vehicule_id:1,immatriculation:'DK-1234-AB',date_heure_depart:'2026-03-10T06:00:00',date_heure_arrivee:'2026-03-10T07:30:00',statut:'termine',nb_passagers:58,recette:145000},
+    {id:6,ligne_id:4,ligne:'Ligne Aéroport',chauffeur_id:2,chauffeur:'Ibrahima FALL',vehicule_id:2,immatriculation:'DK-5678-CD',date_heure_depart:'2026-03-12T09:00:00',date_heure_arrivee:'2026-03-12T10:00:00',statut:'termine',nb_passagers:18,recette:90000},
+    {id:7,ligne_id:1,ligne:'Ligne Dakar-Thiès',chauffeur_id:5,chauffeur:'Aminata BA',vehicule_id:1,immatriculation:'DK-1234-AB',date_heure_depart:'2026-03-20T06:00:00',date_heure_arrivee:null,statut:'en_cours',nb_passagers:45,recette:112500},
+  ],
+};
+const DEMO_INC=[
+  {id:1,trajet_id:2,type:'retard',description:'Embouteillage au centre-ville',gravite:'faible',date_incident:'2026-03-01T08:45:00',resolu:true,ligne:'Ligne Dakar-Thiès',chauffeur:'Ibrahima FALL'},
+  {id:2,trajet_id:3,type:'panne',description:'Crevaison pneu avant droit',gravite:'moyen',date_incident:'2026-03-02T07:30:00',resolu:true,ligne:'Ligne Dakar-Mbour',chauffeur:'Fatou NDIAYE'},
+  {id:3,trajet_id:6,type:'accident',description:'Accrochage léger au rond-point',gravite:'grave',date_incident:'2026-03-12T09:20:00',resolu:false,ligne:'Ligne Aéroport',chauffeur:'Ibrahima FALL'},
+];
+
+// ── State ──────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmt = n => Number(n||0).toLocaleString('fr-FR');
+const fmtDate = d => d ? new Date(d).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+const fmtShort = d => d ? new Date(d).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+const toLocal = d => { if(!d) return ''; const dt=new Date(d); dt.setMinutes(dt.getMinutes()-dt.getTimezoneOffset()); return dt.toISOString().slice(0,16); };
+
+let allVehicules=[], allChauffeurs=[], allTrajets=[], allIncidents=[];
+let chatHistory=[], isThinking=false, selectedGravite='';
+let sessions=JSON.parse(localStorage.getItem('tb_sessions')||'[]'), currentSessionId=null;
+
+function badge(s){
+  const m={termine:'b-green',en_cours:'b-amber',planifie:'b-blue',annule:'b-red',
+    actif:'b-green',maintenance:'b-amber',hors_service:'b-red',bus:'b-blue',minibus:'b-blue',taxi:'b-gray',
+    grave:'b-red',moyen:'b-amber',faible:'b-green'};
+  return `<span class="badge ${m[s]||'b-gray'}">${s}</span>`;
 }
 
-async function loadTrajets() {
-  try {
-    const r = await fetch(`${API}/api/trajets/recent`);
-    const data = await r.json();
-    const container = document.getElementById('trajets-table');
-    if (!data.length) { container.innerHTML = '<p style="color:#94a3b8">Aucun trajet</p>'; return; }
-    const rows = data.slice(0, 8).map(t => `
-      <tr>
-        <td>${t.ligne}</td>
-        <td>${t.chauffeur_nom}</td>
-        <td>${new Date(t.date_heure_depart).toLocaleDateString('fr')}</td>
-        <td><span class="badge ${t.statut==='termine'?'badge-green':t.statut==='en_cours'?'badge-orange':'badge-red'}">${t.statut}</span></td>
-      </tr>`).join('');
-    container.innerHTML = `<table><thead><tr><th>Ligne</th><th>Chauffeur</th><th>Date</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table>`;
-  } catch(e) { console.warn('Trajets non disponibles'); }
+// ── Nav ────────────────────────────────────────────────────────
+const TITLES={dashboard:['Tableau de bord','Vue d\'ensemble'],chat:['Assistant IA','Questions en langage naturel'],
+  vehicules:['Véhicules','Gestion de la flotte'],chauffeurs:['Chauffeurs','Gestion du personnel'],
+  trajets:['Trajets','Historique des trajets'],incidents:['Incidents','Suivi et enregistrement']};
+
+function showTab(n,btn){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(t=>t.classList.remove('active'));
+  const p=document.getElementById('tab-'+n); if(p) p.classList.add('active');
+  const b=btn||document.getElementById('nav-'+n); if(b) b.classList.add('active');
+  const t=TITLES[n]||[n,''];
+  $('topbar-title').innerHTML=t[0]+' <span>'+t[1]+'</span>';
+}
+function toggleSidebar(){ $('sidebar').classList.toggle('collapsed'); }
+
+// ── API ────────────────────────────────────────────────────────
+async function apiFetch(path,opts={}){
+  const r=await fetch((API||'')+path,opts);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
 }
 
-function ask(q) {
-  document.getElementById('user-input').value = q;
-  sendMessage();
+// ── Dashboard ──────────────────────────────────────────────────
+async function loadDashboard(){
+  try{
+    const d=await apiFetch('/api/stats');
+    $('k-total').textContent=fmt(d.total_trajets);$('k-cours').textContent=fmt(d.trajets_en_cours);
+    $('k-veh').textContent=fmt(d.vehicules_actifs);$('k-inc').textContent=fmt(d.incidents_ouverts);
+    const r=d.recette_totale||0; $('k-rec').textContent=r>=1000000?(r/1000000).toFixed(1)+'M':fmt(r);
+    $('k-chauf').textContent=fmt(d.chauffeurs_dispos);
+    setApiStatus(true);
+  }catch{
+    const d=DEMO.stats;$('k-total').textContent=d.total_trajets;$('k-cours').textContent=d.trajets_en_cours;
+    $('k-veh').textContent=d.vehicules_actifs;$('k-inc').textContent=d.incidents_ouverts;
+    $('k-rec').textContent='557K';$('k-chauf').textContent=d.chauffeurs_dispos;setApiStatus(false);
+  }
+  try{ renderDbTrajets(await apiFetch('/api/trajets/recent')); }catch{ renderDbTrajets(DEMO.trajets); }
+  renderBars(); renderIncidentsDash();
+}
+function renderDbTrajets(data){
+  $('db-trajets').innerHTML=data.slice(0,10).map(t=>`<tr>
+    <td>${t.ligne||'—'}</td><td>${t.chauffeur||'—'}</td><td class="mono">${t.immatriculation||'—'}</td>
+    <td>${fmtDate(t.date_heure_depart)}</td><td style="text-align:center">${t.nb_passagers??'—'}</td>
+    <td style="text-align:right" class="mono">${t.recette?fmt(t.recette)+' F':'—'}</td><td>${badge(t.statut)}</td>
+  </tr>`).join('')||'<tr><td colspan="7" class="empty">Aucun trajet</td></tr>';
+}
+function renderBars(){
+  const l=[{n:'Dakar-Thiès',r:344500},{n:'Aéroport',r:90000},{n:'Dakar-Mbour',r:12000},{n:'Centre-Ban.',r:11000}];
+  const mx=Math.max(...l.map(x=>x.r));const c=['#1a56db','#14b8a6','#8b5cf6','#f59e0b'];
+  $('bars-recettes').innerHTML=l.map((x,i)=>`<div class="bar-row">
+    <div class="bar-lbl">${x.n}</div>
+    <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(x.r/mx*100)}%;background:${c[i]}"></div></div>
+    <div class="bar-val">${fmt(x.r)} F</div></div>`).join('');
+}
+function renderIncidentsDash(){
+  const data=[{desc:'Accrochage léger rond-point',g:'grave',l:'L4 Aéroport',r:false},{desc:'Crevaison pneu',g:'moyen',l:'L2 Mbour',r:true},{desc:'Embouteillage',g:'faible',l:'L1 Dakar-Thiès',r:true}];
+  const dc={grave:'d-red',moyen:'d-amber',faible:'d-green'};
+  $('incidents-list').innerHTML=data.map(i=>`<div class="inc-row">
+    <div class="inc-dot ${dc[i.g]}"></div>
+    <div><div class="inc-desc">${i.desc}</div>
+    <div class="inc-meta">${i.l} · ${badge(i.g)} · <span style="color:${i.r?'var(--green)':'var(--red)'}">${i.r?'résolu':'ouvert'}</span></div></div>
+  </div>`).join('');
+}
+function setApiStatus(ok){ const e=$('api-status'); e.textContent=ok?'API connectée':'Mode démo'; e.className='api-pill'+(ok?'':' offline'); }
+
+// ── Véhicules ──────────────────────────────────────────────────
+async function loadVehicules(){ try{allVehicules=await apiFetch('/api/vehicules');}catch{allVehicules=[...DEMO.vehicules];} renderVehicules(allVehicules); }
+function renderVehicules(data){
+  $('veh-tbody').innerHTML=data.map(v=>`<tr>
+    <td class="mono">${v.immatriculation}</td><td>${badge(v.type)}</td><td>${v.capacite} places</td>
+    <td class="mono">${fmt(v.kilometrage)} km</td><td>${fmtShort(v.date_acquisition)}</td><td>${badge(v.statut)}</td>
+    <td><div class="table-actions">
+      <button class="btn btn-edit" onclick="openModal('veh',${v.id})">✏️ Modifier</button>
+      <button class="btn btn-del" onclick="confirmDel('veh',${v.id},'${v.immatriculation}')">🗑</button>
+    </div></td>
+  </tr>`).join('')||'<tr><td colspan="7" class="empty">Aucun véhicule</td></tr>';
+}
+function filterVeh(f,btn){ document.querySelectorAll('#tab-vehicules .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderVehicules(f==='all'?allVehicules:allVehicules.filter(v=>v.statut===f)); }
+
+// ── Chauffeurs ────────────────────────────────────────────────
+async function loadChauffeurs(){ try{allChauffeurs=await apiFetch('/api/chauffeurs');}catch{allChauffeurs=[...DEMO.chauffeurs];} renderChauffeurs(allChauffeurs); }
+function renderChauffeurs(data){
+  $('chauf-tbody').innerHTML=data.map(c=>`<tr>
+    <td style="font-weight:500">${c.nom}</td><td>${c.prenom}</td><td class="mono">${c.telephone||'—'}</td>
+    <td class="mono" style="font-size:12px">${c.numero_permis}</td>
+    <td><span class="badge b-blue">${c.categorie_permis||'—'}</span></td>
+    <td class="mono" style="font-size:12px">${c.immatriculation||'—'}</td>
+    <td>${fmtShort(c.date_embauche)}</td>
+    <td>${c.disponibilite?'<span class="badge b-green">oui</span>':'<span class="badge b-gray">non</span>'}</td>
+    <td><div class="table-actions">
+      <button class="btn btn-edit" onclick="openModal('chauf',${c.id})">✏️ Modifier</button>
+      <button class="btn btn-del" onclick="confirmDel('chauf',${c.id},'${c.prenom} ${c.nom}')">🗑</button>
+    </div></td>
+  </tr>`).join('')||'<tr><td colspan="9" class="empty">Aucun chauffeur</td></tr>';
+}
+function filterChauf(f,btn){ document.querySelectorAll('#tab-chauffeurs .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderChauffeurs(f==='all'?allChauffeurs:allChauffeurs.filter(c=>String(c.disponibilite)===f)); }
+
+// ── Trajets ───────────────────────────────────────────────────
+async function loadTrajets(){ try{allTrajets=await apiFetch('/api/trajets/recent');}catch{allTrajets=[...DEMO.trajets];} renderTrajets(allTrajets); }
+function renderTrajets(data){
+  $('traj-tbody').innerHTML=data.map(t=>`<tr>
+    <td class="mono" style="color:var(--gray-400)">#${t.id}</td><td>${t.ligne||'—'}</td><td>${t.chauffeur||'—'}</td>
+    <td class="mono">${t.immatriculation||'—'}</td><td>${fmtDate(t.date_heure_depart)}</td>
+    <td>${t.date_heure_arrivee?fmtDate(t.date_heure_arrivee):'—'}</td>
+    <td style="text-align:center">${t.nb_passagers??'—'}</td>
+    <td style="text-align:right" class="mono">${t.recette?fmt(t.recette)+' F':'—'}</td>
+    <td>${badge(t.statut)}</td>
+    <td><div class="table-actions">
+      <button class="btn btn-edit" onclick="openModal('traj',${t.id})">✏️ Modifier</button>
+      <button class="btn btn-del" onclick="confirmDel('traj',${t.id},'trajet #${t.id}')">🗑</button>
+    </div></td>
+  </tr>`).join('')||'<tr><td colspan="10" class="empty">Aucun trajet</td></tr>';
+}
+function filterTraj(f,btn){ document.querySelectorAll('#tab-trajets .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderTrajets(f==='all'?allTrajets:allTrajets.filter(t=>t.statut===f)); }
+
+// ── CRUD Modals ───────────────────────────────────────────────
+function openModal(type, id){
+  if(type==='veh'){
+    const v=id?allVehicules.find(x=>x.id===id):null;
+    $('modal-veh-title').textContent=v?'Modifier le véhicule':'Ajouter un véhicule';
+    $('veh-id').value=v?v.id:'';$('veh-immat').value=v?v.immatriculation:'';
+    $('veh-type').value=v?v.type:'bus';$('veh-capacite').value=v?v.capacite:'';
+    $('veh-km').value=v?v.kilometrage:'';$('veh-date').value=v&&v.date_acquisition?v.date_acquisition.slice(0,10):'';
+    $('veh-statut').value=v?v.statut:'actif';
+  }
+  if(type==='chauf'){
+    const c=id?allChauffeurs.find(x=>x.id===id):null;
+    $('modal-chauf-title').textContent=c?'Modifier le chauffeur':'Ajouter un chauffeur';
+    $('chauf-id').value=c?c.id:'';$('chauf-nom').value=c?c.nom:'';$('chauf-prenom').value=c?c.prenom:'';
+    $('chauf-tel').value=c?c.telephone||'':'';$('chauf-permis').value=c?c.numero_permis:'';
+    $('chauf-cat').value=c?c.categorie_permis||'D':'D';$('chauf-embauche').value=c&&c.date_embauche?c.date_embauche.slice(0,10):'';
+    $('chauf-dispo').value=c?c.disponibilite?'1':'0':'1';
+    const sv=$('chauf-vehicule');sv.innerHTML='<option value="">-- Aucun --</option>'+allVehicules.map(v=>`<option value="${v.id}"${c&&c.vehicule_id==v.id?' selected':''}>${v.immatriculation}</option>`).join('');
+  }
+  if(type==='traj'){
+    const t=id?allTrajets.find(x=>x.id===id):null;
+    $('modal-traj-title').textContent=t?'Modifier le trajet':'Ajouter un trajet';
+    $('traj-id').value=t?t.id:'';$('traj-statut').value=t?t.statut:'planifie';
+    $('traj-pass').value=t?t.nb_passagers||'':'';$('traj-recette').value=t?t.recette||'':'';
+    $('traj-depart').value=t?toLocal(t.date_heure_depart):(()=>{const n=new Date();n.setMinutes(n.getMinutes()-n.getTimezoneOffset());return n.toISOString().slice(0,16);})();
+    $('traj-arrivee').value=t?toLocal(t.date_heure_arrivee):'';
+    $('traj-ligne').value=t?t.ligne_id||1:1;
+    $('traj-chauffeur').innerHTML='<option value="">-- Sélectionner --</option>'+allChauffeurs.map(c=>`<option value="${c.id}"${t&&t.chauffeur_id==c.id?' selected':''}>${c.prenom} ${c.nom}</option>`).join('');
+    $('traj-vehicule').innerHTML='<option value="">-- Sélectionner --</option>'+allVehicules.map(v=>`<option value="${v.id}"${t&&t.vehicule_id==v.id?' selected':''}>${v.immatriculation}</option>`).join('');
+  }
+  document.getElementById('modal-'+type).classList.add('open');
+}
+function closeModal(type){ document.getElementById('modal-'+type).classList.remove('open'); }
+document.addEventListener('click',e=>{ if(e.target.classList.contains('modal-overlay')) e.target.classList.remove('open'); });
+
+function saveVehicule(){
+  const id=$('veh-id').value, immat=$('veh-immat').value.trim(), cap=parseInt($('veh-capacite').value);
+  if(!immat||!cap){showToast('⚠️ Champs obligatoires manquants','error');return;}
+  const obj={id:id?parseInt(id):Date.now(),immatriculation:immat,type:$('veh-type').value,capacite:cap,
+    kilometrage:parseInt($('veh-km').value)||0,date_acquisition:$('veh-date').value,statut:$('veh-statut').value};
+  if(id){const i=allVehicules.findIndex(x=>x.id===parseInt(id));if(i!==-1)allVehicules[i]=obj;showToast('✓ Véhicule modifié','success');}
+  else{allVehicules.push(obj);showToast('✓ Véhicule ajouté','success');}
+  renderVehicules(allVehicules);closeModal('veh');
 }
 
-function addMessage(role, text, sql = null) {
-  const box = document.getElementById('chat-box');
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-  div.innerHTML = `<div class="bubble">${text}${sql ? `<div class="sql-preview">${sql}</div>` : ''}</div>`;
-  box.appendChild(div);
-  box.scrollTop = box.scrollHeight;
+function saveChauffeur(){
+  const id=$('chauf-id').value,nom=$('chauf-nom').value.trim().toUpperCase(),prenom=$('chauf-prenom').value.trim(),permis=$('chauf-permis').value.trim();
+  if(!nom||!prenom||!permis){showToast('⚠️ Champs obligatoires manquants','error');return;}
+  const vehId=$('chauf-vehicule').value, veh=allVehicules.find(v=>v.id==vehId);
+  const obj={id:id?parseInt(id):Date.now(),nom,prenom,telephone:$('chauf-tel').value,numero_permis:permis,
+    categorie_permis:$('chauf-cat').value,date_embauche:$('chauf-embauche').value,
+    disponibilite:$('chauf-dispo').value==='1',vehicule_id:vehId?parseInt(vehId):null,
+    immatriculation:veh?veh.immatriculation:null};
+  if(id){const i=allChauffeurs.findIndex(x=>x.id===parseInt(id));if(i!==-1)allChauffeurs[i]=obj;showToast('✓ Chauffeur modifié','success');}
+  else{allChauffeurs.push(obj);showToast('✓ Chauffeur ajouté','success');}
+  renderChauffeurs(allChauffeurs);closeModal('chauf');
 }
 
-async function sendMessage() {
-  const input = document.getElementById('user-input');
-  const question = input.value.trim();
-  if (!question) return;
-  input.value = '';
-  addMessage('user', question);
-  addMessage('bot', '⏳ Analyse en cours...');
+function saveTrajet(){
+  const id=$('traj-id').value,chaufId=$('traj-chauffeur').value,vehId=$('traj-vehicule').value,dep=$('traj-depart').value;
+  if(!chaufId||!vehId||!dep){showToast('⚠️ Champs obligatoires manquants','error');return;}
+  const LIGNES=['','Ligne Dakar-Thiès','Ligne Dakar-Mbour','Ligne Centre-Banlieue','Ligne Aéroport'];
+  const c=allChauffeurs.find(x=>x.id==chaufId),v=allVehicules.find(x=>x.id==vehId),li=parseInt($('traj-ligne').value);
+  const obj={id:id?parseInt(id):Date.now(),ligne_id:li,ligne:LIGNES[li]||'Ligne',
+    chauffeur_id:parseInt(chaufId),chauffeur:c?c.prenom+' '+c.nom:'',
+    vehicule_id:parseInt(vehId),immatriculation:v?v.immatriculation:'',
+    date_heure_depart:dep,date_heure_arrivee:$('traj-arrivee').value||null,
+    statut:$('traj-statut').value,nb_passagers:parseInt($('traj-pass').value)||0,recette:parseFloat($('traj-recette').value)||0};
+  if(id){const i=allTrajets.findIndex(x=>x.id===parseInt(id));if(i!==-1)allTrajets[i]=obj;showToast('✓ Trajet modifié','success');}
+  else{allTrajets.push(obj);showToast('✓ Trajet ajouté','success');}
+  renderTrajets(allTrajets);closeModal('traj');
+}
 
-  try {
-    const r = await fetch(`${API}/api/chat`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ question })
-    });
-    const data = await r.json();
-    document.querySelector('.msg.bot:last-child').remove();
-    addMessage('bot', data.answer + (data.count !== undefined ? ` (${data.count} résultat${data.count > 1 ? 's' : ''})` : ''), data.sql);
+// ── Incidents ─────────────────────────────────────────────────
+async function loadIncidents(){
+  try{allIncidents=await apiFetch('/api/incidents/recent');}catch{allIncidents=[...DEMO_INC];}
+  renderIncidentsList(allIncidents);updateIncBadge();
+}
+function updateIncBadge(){
+  const n=allIncidents.filter(i=>!i.resolu).length;
+  $('k-inc').textContent=n;const b=$('inc-nav-badge');if(b){b.textContent=n;b.style.display=n?'':'none';}
+}
+function renderIncidentsList(data){
+  const ti={panne:'🔧',accident:'💥',retard:'⏱',autre:'📋'};
+  $('inc-tbody').innerHTML=data.map(i=>`<tr>
+    <td class="mono" style="color:var(--gray-400)">#${i.id}</td>
+    <td>${ti[i.type]||''} ${i.type}</td>
+    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${i.description}">${i.description}</td>
+    <td style="font-size:12px">${i.ligne||'—'}<br><span style="color:var(--gray-400)">${i.chauffeur||''}</span></td>
+    <td style="font-size:12px">${fmtDate(i.date_incident)}</td>
+    <td>${badge(i.gravite)}</td>
+    <td>${i.resolu?'<span class="badge b-green">✓ résolu</span>':'<span class="badge b-red">✗ ouvert</span>'}</td>
+    <td><div class="table-actions">
+      <button class="btn btn-edit" onclick="openIncEdit(${i.id})">✏️</button>
+      ${!i.resolu?`<button class="btn btn-success" onclick="markResolu(${i.id})">✓</button>`:''}
+      <button class="btn btn-del" onclick="confirmDel('inc',${i.id},'incident #${i.id}')">🗑</button>
+    </div></td>
+  </tr>`).join('')||'<tr><td colspan="8" class="empty">Aucun incident</td></tr>';
+}
+function filterIncidents(){
+  const g=$('inc-filter-grav').value, r=$('inc-filter-resolu').value;
+  let f=[...allIncidents];
+  if(g) f=f.filter(i=>i.gravite===g);
+  if(r!=='') f=f.filter(i=>String(i.resolu)===r);
+  renderIncidentsList(f);
+}
+function selectGravite(v){
+  selectedGravite=v;
+  ['faible','moyen','grave'].forEach(g=>{ $('grav-'+g).className='grav-btn'+(g===v?' sel-'+g:''); });
+}
+async function submitIncident(){
+  const tId=$('inc-trajet').value,type=$('inc-type').value,date=$('inc-date').value,desc=$('inc-desc').value.trim(),resolu=$('inc-resolu').checked;
+  const msg=$('inc-form-msg');
+  if(!tId||!type||!date||!desc||!selectedGravite){
+    msg.style.cssText='display:block;background:var(--red-bg);color:var(--red);text-align:center;padding:.5rem;border-radius:var(--radius-md);font-size:13px';
+    msg.textContent='⚠️ Remplissez tous les champs obligatoires.';return;
+  }
+  $('inc-submit').disabled=true;$('inc-submit').textContent='Enregistrement...';
+  const trajet=(allTrajets.find(t=>t.id==parseInt(tId))||{});
+  const newId=Math.max(0,...allIncidents.map(i=>i.id))+1;
+  allIncidents.unshift({id:newId,trajet_id:parseInt(tId),type,description:desc,gravite:selectedGravite,
+    date_incident:date.replace('T',' ')+':00',resolu,ligne:trajet.ligne||'Trajet #'+tId,chauffeur:trajet.chauffeur||'—'});
+  renderIncidentsList(allIncidents);updateIncBadge();
+  $('inc-trajet').value='';$('inc-type').value='';$('inc-desc').value='';$('inc-resolu').checked=false;
+  selectedGravite='';['faible','moyen','grave'].forEach(g=>{ $('grav-'+g).className='grav-btn'; });
+  msg.style.display='none';$('inc-submit').disabled=false;$('inc-submit').textContent="Enregistrer l'incident";
+  showToast('✓ Incident enregistré','success');
+}
+function openIncEdit(id){
+  const i=allIncidents.find(x=>x.id===id);if(!i)return;
+  $('inc-edit-id').value=i.id;$('inc-edit-type').value=i.type;$('inc-edit-gravite').value=i.gravite;
+  $('inc-edit-desc').value=i.description;$('inc-edit-resolu').value=i.resolu?'1':'0';
+  $('inc-edit-date').value=toLocal(i.date_incident);
+  document.getElementById('modal-inc-edit').classList.add('open');
+}
+function saveIncidentEdit(){
+  const id=parseInt($('inc-edit-id').value),idx=allIncidents.findIndex(x=>x.id===id);
+  if(idx===-1)return;
+  allIncidents[idx]={...allIncidents[idx],type:$('inc-edit-type').value,gravite:$('inc-edit-gravite').value,
+    description:$('inc-edit-desc').value.trim(),resolu:$('inc-edit-resolu').value==='1',
+    date_incident:$('inc-edit-date').value.replace('T',' ')+':00'};
+  renderIncidentsList(allIncidents);updateIncBadge();closeModal('inc-edit');showToast('✓ Incident modifié','success');
+}
+function markResolu(id){
+  const i=allIncidents.find(x=>x.id===id);if(i)i.resolu=true;
+  renderIncidentsList(allIncidents);updateIncBadge();showToast('✓ Incident résolu','success');
+}
 
-    if (data.data && data.data.length > 0) {
-      const section = document.getElementById('results-section');
-      section.style.display = 'block';
-      const keys = Object.keys(data.data[0]);
-      const rows = data.data.map(row => `<tr>${keys.map(k => `<td>${row[k] ?? ''}</td>`).join('')}</tr>`).join('');
-      document.getElementById('results-table').innerHTML = `<table><thead><tr>${keys.map(k=>`<th>${k}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
-    }
-  } catch(e) {
-    document.querySelector('.msg.bot:last-child').remove();
-    addMessage('bot', '❌ Erreur de connexion au serveur.');
+// ── Suppression ───────────────────────────────────────────────
+function confirmDel(type,id,label){
+  $('confirm-msg').innerHTML=`Supprimer <strong>${label}</strong> ?<br><span style="font-size:12px;color:var(--gray-400)">Action irréversible.</span>`;
+  $('confirm-ok-btn').onclick=()=>doDelete(type,id);
+  document.getElementById('modal-confirm').classList.add('open');
+}
+function doDelete(type,id){
+  if(type==='veh'){allVehicules=allVehicules.filter(x=>x.id!==id);renderVehicules(allVehicules);showToast('✓ Véhicule supprimé','success');}
+  else if(type==='chauf'){allChauffeurs=allChauffeurs.filter(x=>x.id!==id);renderChauffeurs(allChauffeurs);showToast('✓ Chauffeur supprimé','success');}
+  else if(type==='traj'){allTrajets=allTrajets.filter(x=>x.id!==id);renderTrajets(allTrajets);showToast('✓ Trajet supprimé','success');}
+  else if(type==='inc'){allIncidents=allIncidents.filter(x=>x.id!==id);renderIncidentsList(allIncidents);updateIncBadge();showToast('✓ Incident supprimé','success');}
+  closeModal('confirm');
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function showToast(msg,type){
+  document.querySelectorAll('.toast').forEach(t=>t.remove());
+  const t=document.createElement('div');t.className='toast toast-'+type;t.textContent=msg;
+  document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+}
+
+// ── Chat ──────────────────────────────────────────────────────
+function saveSessions(){localStorage.setItem('tb_sessions',JSON.stringify(sessions));}
+function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function newSession(){
+  saveCurrentSession();
+  const id=genId();
+  sessions.unshift({id,title:'Nouvelle conversation',date:new Date().toISOString(),messages:[],history:[]});
+  currentSessionId=id;chatHistory=[];saveSessions();renderHistList();renderSessionMessages([]);
+}
+function saveCurrentSession(){
+  if(!currentSessionId)return;
+  const idx=sessions.findIndex(s=>s.id===currentSessionId);if(idx===-1)return;
+  const msgs=[];$('chat-messages').querySelectorAll('.msg').forEach(el=>{
+    msgs.push({role:el.classList.contains('user')?'user':'bot',html:el.querySelector('div:last-child').innerHTML});
+  });
+  sessions[idx].messages=msgs;sessions[idx].history=[...chatHistory];saveSessions();
+}
+function loadSession(id){
+  saveCurrentSession();const s=sessions.find(x=>x.id===id);if(!s)return;
+  currentSessionId=id;chatHistory=[...(s.history||[])];renderHistList();renderSessionMessages(s.messages);
+}
+function deleteSession(id,e){
+  e.stopPropagation();sessions=sessions.filter(s=>s.id!==id);saveSessions();
+  if(currentSessionId===id){currentSessionId=null;chatHistory=[];renderSessionMessages([]);}renderHistList();
+}
+function renderHistList(){
+  const el=$('hist-list');
+  if(!sessions.length){el.innerHTML='<div class="hist-empty">Aucune conversation</div>';return;}
+  el.innerHTML=sessions.map(s=>{
+    const d=new Date(s.date);
+    const ds=d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const n=s.messages.filter(m=>m.role==='user').length;
+    return `<div class="hist-session${s.id===currentSessionId?' active-sess':''}" onclick="loadSession('${s.id}')">
+      <div class="hist-icon">💬</div>
+      <div class="hist-info"><div class="hist-title">${s.title}</div><div class="hist-meta">${ds} · ${n} question${n>1?'s':''}</div></div>
+      <button class="hist-del" onclick="deleteSession('${s.id}',event)">✕</button>
+    </div>`;
+  }).join('');
+}
+function renderSessionMessages(msgs){
+  const box=$('chat-messages');
+  if(!msgs.length){
+    box.innerHTML=`<div class="msg bot"><div class="msg-avatar">🤖</div><div><div class="bubble">Bonjour ! Je suis <strong>TranspoBot</strong>.<br>Posez vos questions sur la flotte, les chauffeurs ou les trajets.</div></div></div>`;
+    return;
+  }
+  box.innerHTML=msgs.map(m=>`<div class="msg ${m.role}"><div class="msg-avatar">${m.role==='bot'?'🤖':'👤'}</div><div>${m.html}</div></div>`).join('');
+  box.scrollTop=box.scrollHeight;
+}
+function switchSidebarTab(t,btn){
+  document.querySelectorAll('.sidebar-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.sidebar-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');$('panel-'+t).classList.add('active');
+}
+function updateSessionTitle(q){
+  if(!currentSessionId)return;
+  const idx=sessions.findIndex(s=>s.id===currentSessionId);if(idx===-1)return;
+  if(sessions[idx].title==='Nouvelle conversation'||sessions[idx].messages.filter(m=>m.role==='user').length===0){
+    sessions[idx].title=q.length>38?q.slice(0,38)+'…':q;saveSessions();renderHistList();
   }
 }
+function askQ(q){showTab('chat',$('nav-chat'));$('chat-input').value=q;sendMsg();}
+function addMsg(role,content){
+  const box=$('chat-messages'),div=document.createElement('div');
+  div.className='msg '+role;
+  div.innerHTML=`<div class="msg-avatar">${role==='bot'?'🤖':'👤'}</div><div>${content}</div>`;
+  box.appendChild(div);box.scrollTop=box.scrollHeight;return div;
+}
+function typing(){return addMsg('bot','<div class="bubble"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>');}
+function renderResults(data){
+  if(!data||!data.length)return '';
+  const k=Object.keys(data[0]);
+  return `<div class="results-table-wrap"><table><thead><tr>${k.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${data.map(r=>`<tr>${k.map(x=>`<td>${r[x]??'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+async function sendMsg(){
+  if(isThinking)return;
+  const input=$('chat-input'),q=input.value.trim();if(!q)return;
+  input.value='';isThinking=true;$('send-btn').disabled=true;
+  if(!currentSessionId){
+    const id=genId();sessions.unshift({id,title:'Nouvelle conversation',date:new Date().toISOString(),messages:[],history:[]});
+    currentSessionId=id;saveSessions();renderHistList();
+  }
+  addMsg('user',`<div class="bubble">${q}</div>`);const loader=typing();
+  try{
+    const res=await apiFetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,history:chatHistory})});
+    loader.remove();
+    const sql=res.sql?`<div class="sql-label">Requête SQL</div><div class="sql-block">${res.sql}</div>`:'';
+    const cnt=res.count>0?` <span style="color:var(--gray-400);font-size:12px">(${res.count} résultat${res.count>1?'s':''})</span>`:'';
+    addMsg('bot',`<div class="bubble"><div>${res.answer}${cnt}</div>${sql}${renderResults(res.data)}</div>`);
+    chatHistory.push({role:'user',content:q},{role:'assistant',content:res.answer});
+    if(chatHistory.length>12)chatHistory=chatHistory.slice(-12);
+  }catch(e){
+    loader.remove();
+    addMsg('bot',`<div class="bubble" style="border-color:var(--red-bg)">⚠️ Backend inaccessible.<br><span style="font-size:12px;color:var(--gray-400)">Lancez le serveur sur ${API||'http://localhost:8000'}</span></div>`);
+  }
+  updateSessionTitle(q);saveCurrentSession();renderHistList();
+  isThinking=false;$('send-btn').disabled=false;$('chat-input').focus();
+}
+function clearChat(){
+  if(currentSessionId){const i=sessions.findIndex(s=>s.id===currentSessionId);if(i!==-1){sessions[i].messages=[];sessions[i].history=[];saveSessions();}}
+  chatHistory=[];renderSessionMessages([]);renderHistList();
+}
 
-loadStats();
-loadTrajets();
+// ── Init form incidents ────────────────────────────────────────
+function initIncidentForm(){
+  const now=new Date();now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
+  $('inc-date').value=now.toISOString().slice(0,16);
+}
+function refreshIncidentTrajetSelect(){
+  $('inc-trajet').innerHTML='<option value="">-- Sélectionner --</option>'+
+    allTrajets.map(t=>`<option value="${t.id}">#${t.id} — ${t.ligne||'Trajet'} · ${t.chauffeur||''} · ${fmtShort(t.date_heure_depart)}</option>`).join('');
+}
+
+// ── Init ──────────────────────────────────────────────────────
+renderHistList();
+renderSessionMessages([]);
+loadDashboard();
+Promise.all([loadVehicules(),loadChauffeurs(),loadTrajets(),loadIncidents()]).then(()=>{ refreshIncidentTrajetSelect(); });
+initIncidentForm();
 </script>
 </body>
 </html>
