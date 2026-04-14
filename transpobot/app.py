@@ -1,23 +1,22 @@
 """
-TranspoBot — Backend FastAPI
+TranspoBot — Backend FastAPI complet
 Projet GLSi L3 — ESP/UCAD
-Configuré pour Ollama (LLaMA3) en local
+Equipe : M1 Arame Yvonne, M2 Ndeye Khady, M3 Aminata Ndiaye, M4 Ndeye Maty, M5 Mame Dior
 """
 
-# ── AJOUT 1 : charger le fichier .env automatiquement ──────────
-from dotenv import load_dotenv
-load_dotenv()
-# ───────────────────────────────────────────────────────────────
-
 from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse, FileResponse
+from pydantic import BaseModel, Field
+from typing import Optional
+from dotenv import load_dotenv
 import mysql.connector
 import os
 import re
 import json
 import httpx
+
+load_dotenv()
 
 app = FastAPI(title="TranspoBot API", version="1.0.0")
 
@@ -36,11 +35,11 @@ DB_CONFIG = {
     "database": os.getenv("DB_NAME", "transpobot"),
 }
 
-LLM_API_KEY  = os.getenv("OPENAI_API_KEY", "ollama")   # "ollama" par défaut
-LLM_MODEL    = os.getenv("LLM_MODEL", "llama3.2")       # MODIFIÉ : llama3.2
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")  # MODIFIÉ : Ollama
+LLM_API_KEY  = os.getenv("OPENAI_API_KEY", "ollama")
+LLM_MODEL    = os.getenv("LLM_MODEL", "llama3")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
 
-# ── Schéma de la base (pour le prompt système) ─────────────────
+# ── Schéma de la base ─────────────────────────────────────────
 DB_SCHEMA = """
 Tables MySQL disponibles :
 
@@ -50,59 +49,77 @@ lignes(id, code, nom, origine, destination, distance_km, duree_minutes)
 tarifs(id, ligne_id, type_client[normal/etudiant/senior], prix)
 trajets(id, ligne_id, chauffeur_id, vehicule_id, date_heure_depart, date_heure_arrivee, statut[planifie/en_cours/termine/annule], nb_passagers, recette)
 incidents(id, trajet_id, type[panne/accident/retard/autre], description, gravite[faible/moyen/grave], date_incident, resolu)
+
+RELATIONS IMPORTANTES :
+- incidents N'A PAS de chauffeur_id direct. Passer par : incidents -> trajets -> chauffeurs
+- incidents N'A PAS de vehicule_id direct. Passer par : incidents -> trajets -> vehicules
+- chauffeurs.vehicule_id -> vehicules.id
+- trajets.chauffeur_id -> chauffeurs.id
+- trajets.vehicule_id -> vehicules.id
+- trajets.ligne_id -> lignes.id
+- incidents.trajet_id -> trajets.id
 """
 
-# ── AJOUT 2 : Prompt amélioré pour LLaMA (plus explicite) ──────
 SYSTEM_PROMPT = f"""Tu es TranspoBot, l'assistant IA d'une compagnie de transport urbain au Sénégal.
 Tu aides les gestionnaires à interroger la base de données en langage naturel (français ou anglais).
 
 {DB_SCHEMA}
 
-RÈGLES ABSOLUES — Tu dois les respecter à chaque réponse :
-
-1. Génère UNIQUEMENT des requêtes SELECT. Les commandes INSERT, UPDATE, DELETE, DROP, ALTER sont STRICTEMENT INTERDITES.
-
-2. Réponds TOUJOURS avec un objet JSON valide, rien d'autre. Pas de texte avant, pas de texte après, pas de markdown, pas de ```json```.
-    Format obligatoire :
-    {{"sql": "SELECT ...", "explication": "Réponse claire en français pour le gestionnaire"}}
-
-3. Si la question est hors base de données ou impossible à traduire en SQL, réponds exactement :
-    {{"sql": null, "explication": "Je ne peux pas répondre à cette question avec les données disponibles."}}
-
-4. Utilise des alias lisibles. Exemple : COUNT(*) AS nb_trajets, SUM(recette) AS recette_totale.
-
+RÈGLES ABSOLUES :
+1. Génère UNIQUEMENT des requêtes SELECT. INSERT, UPDATE, DELETE, DROP, ALTER sont INTERDITS.
+2. Réponds TOUJOURS avec un objet JSON valide, rien d'autre. Pas de texte avant, pas de markdown.
+   Format obligatoire :
+   {{"sql": "SELECT ...", "explication": "Réponse claire en français"}}
+3. Si la question est impossible à traduire en SQL :
+   {{"sql": null, "explication": "Je ne peux pas répondre à cette question avec les données disponibles."}}
+4. Utilise des alias lisibles. Exemple : COUNT(*) AS nb_trajets.
 5. Ajoute LIMIT 100 à toutes les requêtes sauf si un nombre précis est demandé.
-
 6. Pour les périodes :
-    - "cette semaine" = WHERE date_heure_depart >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-    - "ce mois" = WHERE MONTH(date_heure_depart) = MONTH(NOW())
-    - "aujourd'hui" = WHERE DATE(date_heure_depart) = CURDATE()
-
-7. L'explication doit être une réponse directe au gestionnaire, pas une description de la requête.
-    BON : "3 véhicules sont actifs en ce moment."
-    MAUVAIS : "La requête compte les véhicules dont le statut est actif."
-
-RAPPEL : Réponds UNIQUEMENT avec le JSON. Aucun autre texte.
+   - "cette semaine" = WHERE date_heure_depart >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+   - "ce mois" = WHERE MONTH(date_heure_depart) = MONTH(NOW())
+   - "aujourd'hui" = WHERE DATE(date_heure_depart) = CURDATE()
+7. L'explication doit être une réponse directe au gestionnaire.
+   BON : "3 véhicules sont actifs en ce moment."
+   MAUVAIS : "La requête compte les véhicules dont le statut est actif."
 """
-# ───────────────────────────────────────────────────────────────
 
-# ── Connexion MySQL ────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+#  CONNEXION & UTILITAIRES
+# ══════════════════════════════════════════════════════════════
+
 def get_db():
-    return mysql.connector.connect(**DB_CONFIG)
+    try:
+        return mysql.connector.connect(**DB_CONFIG)
+    except mysql.connector.Error as e:
+        raise HTTPException(status_code=500, detail=f"Erreur connexion DB : {str(e)}")
 
-def execute_query(sql: str):
+def execute_query(sql: str, params: tuple = ()):
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute(sql)
+        cursor.execute(sql, params)
         return cursor.fetchall()
+    except mysql.connector.Error as e:
+        raise HTTPException(status_code=500, detail=f"Erreur SQL : {str(e)}")
     finally:
         cursor.close()
         conn.close()
 
-# ── AJOUT 3 : Sécurité — bloquer tout ce qui n'est pas SELECT ──
+def execute_write(sql: str, params: tuple = ()):
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(sql, params)
+        conn.commit()
+        return cursor.lastrowid, cursor.rowcount
+    except mysql.connector.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur SQL : {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
 def is_safe_sql(sql: str) -> bool:
-    """Vérifie que la requête est bien un SELECT et rien d'autre."""
     sql_clean = sql.strip().upper()
     forbidden = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE", "EXEC"]
     if not sql_clean.startswith("SELECT"):
@@ -111,11 +128,12 @@ def is_safe_sql(sql: str) -> bool:
         if word in sql_clean:
             return False
     return True
-# ───────────────────────────────────────────────────────────────
 
-# ── Appel LLM ─────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+#  APPEL LLM
+# ══════════════════════════════════════════════════════════════
+
 async def ask_llm(question: str) -> dict:
-    # MODIFIÉ : timeout augmenté à 60s car Ollama local est plus lent qu'OpenAI
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{LLM_BASE_URL}/chat/completions",
@@ -127,35 +145,54 @@ async def ask_llm(question: str) -> dict:
                     {"role": "user",   "content": question},
                 ],
                 "temperature": 0,
-                "stream": False, 
+                "stream": False,
             },
-            timeout=60,  # MODIFIÉ : 60s au lieu de 30s pour Ollama
+            timeout=120,
         )
         response.raise_for_status()
-        content = response.json()["choices"][0]["message"]["content"]
-
-        # MODIFIÉ : extraction JSON plus robuste pour LLaMA
-        # LLaMA peut ajouter du texte avant/après le JSON
-        content = content.strip()
-
-        # Supprimer les blocs markdown si LLaMA en génère
+        content = response.json()["choices"][0]["message"]["content"].strip()
         content = re.sub(r"```json\s*", "", content)
         content = re.sub(r"```\s*", "", content)
-
-        # Extraire le premier objet JSON trouvé
         match = re.search(r'\{.*\}', content, re.DOTALL)
         if match:
             return json.loads(match.group())
         raise ValueError(f"Réponse LLM non parseable : {content[:200]}")
 
-# ── Routes API ─────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+#  MODÈLES PYDANTIC
+# ══════════════════════════════════════════════════════════════
+
 class ChatMessage(BaseModel):
-    question: str
+    question: str = Field(..., min_length=2, max_length=500)
+
+class IncidentCreate(BaseModel):
+    trajet_id: int
+    type: str = Field(..., pattern="^(panne|accident|retard|autre)$")
+    description: Optional[str] = ""
+    gravite: str = Field("faible", pattern="^(faible|moyen|grave)$")
+
+# ══════════════════════════════════════════════════════════════
+#  ROUTES API
+# ══════════════════════════════════════════════════════════════
+
+@app.get("/health")
+def health():
+    try:
+        conn = get_db()
+        conn.close()
+        db_status = "ok"
+    except Exception:
+        db_status = "error"
+    return {
+        "status": "ok",
+        "app": "TranspoBot",
+        "version": "1.0.0",
+        "database": db_status,
+        "llm_model": LLM_MODEL,
+    }
 
 @app.post("/api/chat")
 async def chat(msg: ChatMessage):
-    """Point d'entrée principal : question → SQL → résultats"""
-    from fastapi.responses import JSONResponse
     sql = None
     try:
         llm_response = await ask_llm(msg.question)
@@ -163,104 +200,144 @@ async def chat(msg: ChatMessage):
         explication = llm_response.get("explication", "")
 
         if not sql:
-            return JSONResponse(
-                content={"answer": explication, "data": [], "sql": None},
-                media_type="application/json; charset=utf-8"
-            )
+            return JSONResponse(content={"answer": explication, "data": [], "sql": None})
 
-        # Vérification sécurité avant exécution
         if not is_safe_sql(sql):
-            return JSONResponse(
-                content={
-                    "answer": "Requête refusée pour des raisons de sécurité (opération non autorisée).",
-                    "data": [],
-                    "sql": sql
-                },
-                media_type="application/json; charset=utf-8"
-            )
+            return JSONResponse(content={"answer": "Requête refusée pour des raisons de sécurité.", "data": [], "sql": sql})
 
         data = execute_query(sql)
-        return JSONResponse(
-            content={
-                "answer": explication,
-                "data": data,
-                "sql": sql,
-                "count": len(data),
-            },
-            media_type="application/json; charset=utf-8"
-        )
+        return JSONResponse(content={"answer": explication, "data": data, "sql": sql, "count": len(data)})
 
     except ValueError:
-        return JSONResponse(
-            content={
-                "answer": "Je n'ai pas pu interpréter la réponse du LLM. Essayez de reformuler votre question.",
-                "data": [],
-                "sql": None
-            },
-            media_type="application/json; charset=utf-8"
-        )
+        return JSONResponse(content={"answer": "Je n'ai pas pu interpréter la réponse du LLM. Reformulez votre question.", "data": [], "sql": None})
     except mysql.connector.Error:
-        return JSONResponse(
-            content={
-                "answer": "La requête SQL générée est invalide. Essayez de reformuler votre question.",
-                "data": [],
-                "sql": sql
-            },
-            media_type="application/json; charset=utf-8"
-        )
+        return JSONResponse(content={"answer": "La requête SQL générée est invalide. Reformulez votre question.", "data": [], "sql": sql})
     except httpx.ConnectError:
-        raise HTTPException(
-            status_code=503,
-            detail="Ollama n'est pas accessible. Vérifiez qu'il tourne avec 'ollama serve'."
-        )
+        raise HTTPException(status_code=503, detail="Ollama n'est pas accessible. Vérifiez qu'il tourne avec 'ollama serve'.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 @app.get("/api/stats")
 def get_stats():
-    """Tableau de bord — statistiques rapides"""
-    stats = {}
     queries = {
-        "total_trajets":     "SELECT COUNT(*) as n FROM trajets WHERE statut='termine'",
-        "trajets_en_cours":  "SELECT COUNT(*) as n FROM trajets WHERE statut='en_cours'",
-        "vehicules_actifs":  "SELECT COUNT(*) as n FROM vehicules WHERE statut='actif'",
-        "incidents_ouverts": "SELECT COUNT(*) as n FROM incidents WHERE resolu=FALSE",
-        "recette_totale":    "SELECT COALESCE(SUM(recette),0) as n FROM trajets WHERE statut='termine'",
+        "total_trajets":    "SELECT COUNT(*) as n FROM trajets WHERE statut='termine'",
+        "trajets_en_cours": "SELECT COUNT(*) as n FROM trajets WHERE statut='en_cours'",
+        "vehicules_actifs": "SELECT COUNT(*) as n FROM vehicules WHERE statut='actif'",
+        "incidents_ouverts":"SELECT COUNT(*) as n FROM incidents WHERE resolu=FALSE",
+        "recette_totale":   "SELECT COALESCE(SUM(recette),0) as n FROM trajets WHERE statut='termine'",
+        "total_chauffeurs": "SELECT COUNT(*) as n FROM chauffeurs WHERE disponibilite=TRUE",
     }
+    stats = {}
     for key, sql in queries.items():
         result = execute_query(sql)
         stats[key] = result[0]["n"] if result else 0
     return stats
 
+@app.get("/api/stats/recettes-par-ligne")
+def get_recettes_par_ligne():
+    return execute_query("""
+        SELECT l.code, l.nom, l.origine, l.destination,
+               COUNT(t.id) AS nb_trajets,
+               COALESCE(SUM(t.recette), 0) AS recette_totale,
+               COALESCE(AVG(t.nb_passagers), 0) AS moy_passagers
+        FROM lignes l
+        LEFT JOIN trajets t ON l.id = t.ligne_id AND t.statut = 'termine'
+        GROUP BY l.id, l.code, l.nom, l.origine, l.destination
+        ORDER BY recette_totale DESC
+    """)
 
 @app.get("/api/vehicules")
 def get_vehicules():
     return execute_query("SELECT * FROM vehicules ORDER BY immatriculation")
 
+@app.get("/api/vehicules/{vehicule_id}")
+def get_vehicule(vehicule_id: int):
+    result = execute_query("SELECT * FROM vehicules WHERE id = %s", (vehicule_id,))
+    if not result:
+        raise HTTPException(status_code=404, detail="Vehicule non trouve")
+    return result[0]
+
 @app.get("/api/chauffeurs")
 def get_chauffeurs():
     return execute_query("""
-        SELECT c.*, v.immatriculation
+        SELECT c.*, v.immatriculation, v.type AS vehicule_type
         FROM chauffeurs c
         LEFT JOIN vehicules v ON c.vehicule_id = v.id
         ORDER BY c.nom
     """)
 
+@app.get("/api/chauffeurs/{chauffeur_id}")
+def get_chauffeur(chauffeur_id: int):
+    result = execute_query("""
+        SELECT c.*, v.immatriculation, v.type AS vehicule_type
+        FROM chauffeurs c
+        LEFT JOIN vehicules v ON c.vehicule_id = v.id
+        WHERE c.id = %s
+    """, (chauffeur_id,))
+    if not result:
+        raise HTTPException(status_code=404, detail="Chauffeur non trouve")
+    return result[0]
+
+@app.get("/api/lignes")
+def get_lignes():
+    return execute_query("""
+        SELECT l.*, COUNT(DISTINCT t.id) AS nb_trajets_total
+        FROM lignes l
+        LEFT JOIN trajets t ON l.id = t.ligne_id
+        GROUP BY l.id
+        ORDER BY l.code
+    """)
+
 @app.get("/api/trajets/recent")
 def get_trajets_recent():
     return execute_query("""
-        SELECT t.*, l.nom as ligne, ch.nom as chauffeur_nom, v.immatriculation
+        SELECT t.*,
+               l.nom AS ligne, l.code AS ligne_code,
+               ch.nom AS chauffeur_nom, ch.prenom AS chauffeur_prenom,
+               v.immatriculation
         FROM trajets t
-        JOIN lignes l ON t.ligne_id = l.id
+        JOIN lignes     l  ON t.ligne_id     = l.id
         JOIN chauffeurs ch ON t.chauffeur_id = ch.id
-        JOIN vehicules v ON t.vehicule_id = v.id
+        JOIN vehicules  v  ON t.vehicule_id  = v.id
         ORDER BY t.date_heure_depart DESC
         LIMIT 20
     """)
 
-@app.get("/health")
-def health():
-    return {"status": "ok", "app": "TranspoBot", "llm": LLM_MODEL}
+@app.get("/api/incidents/recent")
+def get_incidents_recent():
+    return execute_query("""
+        SELECT i.*,
+               ch.nom AS chauffeur_nom, ch.prenom AS chauffeur_prenom,
+               v.immatriculation, l.nom AS ligne_nom
+        FROM incidents i
+        JOIN trajets    t  ON i.trajet_id    = t.id
+        JOIN chauffeurs ch ON t.chauffeur_id = ch.id
+        JOIN vehicules  v  ON t.vehicule_id  = v.id
+        JOIN lignes     l  ON t.ligne_id     = l.id
+        ORDER BY i.date_incident DESC
+        LIMIT 20
+    """)
+
+@app.post("/api/incidents")
+def create_incident(data: IncidentCreate):
+    lastrowid, _ = execute_write(
+        "INSERT INTO incidents (trajet_id, type, description, gravite, date_incident, resolu) VALUES (%s, %s, %s, %s, NOW(), FALSE)",
+        (data.trajet_id, data.type, data.description, data.gravite)
+    )
+    return {"success": True, "id": lastrowid}
+
+@app.patch("/api/incidents/{incident_id}/resoudre")
+def resoudre_incident(incident_id: int):
+    _, rowcount = execute_write("UPDATE incidents SET resolu = TRUE WHERE id = %s", (incident_id,))
+    if rowcount == 0:
+        raise HTTPException(status_code=404, detail="Incident non trouve")
+    return {"success": True}
+
+# ── Servir le frontend ────────────────────────────────────────
+if os.path.exists("index.html"):
+    @app.get("/")
+    def serve_frontend():
+        return FileResponse("index.html")
 
 # ── Lancement ─────────────────────────────────────────────────
 if __name__ == "__main__":
