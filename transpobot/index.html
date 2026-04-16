@@ -6,6 +6,7 @@
 <title>TranspoBot — Gestion Transport Urbain</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -348,7 +349,7 @@ textarea.form-control{resize:vertical;min-height:80px}
     <div class="sidebar-footer">
       <div class="sidebar-user">
         <div class="user-avatar">NM</div>
-        <div class="user-info"><p>Ndeye Maty</p><span>GLSi L3 — ESP/UCAD</span></div>
+        <div class="user-info"><p>GIRLS</p><span>GLSi L3 — ESP/UCAD</span></div>
       </div>
     </div>
   </aside>
@@ -372,8 +373,8 @@ textarea.form-control{resize:vertical;min-height:80px}
           <div class="kpi-card"><div class="kpi-accent" style="background:#8b5cf6"></div><div class="kpi-label">Chauffeurs dispos</div><div class="kpi-value" id="k-chauf">—</div><div class="kpi-sub">disponibles</div></div>
         </div>
         <div class="grid-3">
-          <div class="card"><div class="card-body"><div class="section-hd"><h2>Recettes par ligne</h2></div><div id="bars-recettes"></div></div></div>
-          <div class="card"><div class="card-body"><div class="section-hd"><h2>Incidents récents</h2></div><div id="incidents-list"></div></div></div>
+          <div class="card"><div class="card-body"><div class="section-hd"><h2>Recettes par ligne</h2></div><canvas id="chart-recettes" height="180"></canvas></div></div>
+          <div class="card"><div class="card-body"><div class="section-hd"><h2>Statut des véhicules</h2></div><canvas id="chart-vehicules" height="180"></canvas></div></div>
         </div>
         <div class="card">
           <div class="card-body"><div class="section-hd"><h2>Derniers trajets</h2><small style="cursor:pointer;color:var(--blue)" onclick="loadDashboard()">Actualiser</small></div></div>
@@ -710,7 +711,38 @@ const fmtDate = d => d ? new Date(d).toLocaleDateString('fr-FR',{day:'2-digit',m
 const fmtShort = d => d ? new Date(d).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
 const toLocal = d => { if(!d) return ''; const dt=new Date(d); dt.setMinutes(dt.getMinutes()-dt.getTimezoneOffset()); return dt.toISOString().slice(0,16); };
 
-let allVehicules=[], allChauffeurs=[], allTrajets=[], allIncidents=[];
+let chartRecettes=null, chartVehicules=null;
+
+function renderCharts(statsData, recettesData){
+  // Graphique recettes par ligne
+  const ctxR = document.getElementById('chart-recettes').getContext('2d');
+  if(chartRecettes) chartRecettes.destroy();
+  const lignes = recettesData.map(l=>l.code||l.nom);
+  const recettes = recettesData.map(l=>parseFloat(l.recette_totale)||0);
+  chartRecettes = new Chart(ctxR,{
+    type:'bar',
+    data:{
+      labels:lignes,
+      datasets:[{label:'Recette (FCFA)',data:recettes,
+        backgroundColor:['#1a56db','#14b8a6','#8b5cf6','#f59e0b','#ef4444','#22c55e'],
+        borderRadius:6,borderSkipped:false}]
+    },
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':v}}}}
+  });
+
+  // Graphique statut véhicules
+  const ctxV = document.getElementById('chart-vehicules').getContext('2d');
+  if(chartVehicules) chartVehicules.destroy();
+  chartVehicules = new Chart(ctxV,{
+    type:'doughnut',
+    data:{
+      labels:['Actifs','Maintenance','Hors service'],
+      datasets:[{data:[statsData.vehicules_actifs||0, statsData.vehicules_maintenance||0, statsData.vehicules_hors_service||0],
+        backgroundColor:['#22c55e','#f59e0b','#ef4444'],borderWidth:0,hoverOffset:6}]
+    },
+    options:{responsive:true,cutout:'70%',plugins:{legend:{position:'bottom',labels:{font:{size:12},padding:12}}}}
+  });
+}
 let chatHistory=[], isThinking=false, selectedGravite='';
 let sessions=JSON.parse(localStorage.getItem('tb_sessions')||'[]'), currentSessionId=null;
 
@@ -752,10 +784,16 @@ async function loadDashboard(){
     const r=d.recette_totale||0; $('k-rec').textContent=r>=1000000?(r/1000000).toFixed(1)+'M':fmt(r);
     $('k-chauf').textContent=fmt(d.chauffeurs_dispos);
     setApiStatus(true);
+    // Charger recettes pour graphique
+    try{
+      const recettes = await apiFetch('/api/stats/recettes-par-ligne');
+      renderCharts(d, recettes);
+    }catch{ renderCharts(d,[{code:'L1',recette_totale:344500},{code:'L2',recette_totale:90000},{code:'L3',recette_totale:12000},{code:'L4',recette_totale:11000}]); }
   }catch{
     const d=DEMO.stats;$('k-total').textContent=d.total_trajets;$('k-cours').textContent=d.trajets_en_cours;
     $('k-veh').textContent=d.vehicules_actifs;$('k-inc').textContent=d.incidents_ouverts;
     $('k-rec').textContent='557K';$('k-chauf').textContent=d.chauffeurs_dispos;setApiStatus(false);
+    renderCharts({vehicules_actifs:4,vehicules_maintenance:1,vehicules_hors_service:1},[{code:'L1',recette_totale:344500},{code:'L2',recette_totale:90000},{code:'L3',recette_totale:12000},{code:'L4',recette_totale:11000}]);
   }
   try{ renderDbTrajets(await apiFetch('/api/trajets/recent')); }catch{ renderDbTrajets(DEMO.trajets); }
   renderBars(); renderIncidentsDash();
